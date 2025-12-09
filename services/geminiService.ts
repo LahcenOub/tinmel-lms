@@ -34,13 +34,31 @@ export const GeminiService = {
             type: Type.OBJECT,
             properties: {
                 text: { type: Type.STRING },
-                type: { type: Type.STRING, enum: [QuestionType.MCQ, QuestionType.BOOLEAN, QuestionType.SHORT_ANSWER] },
+                type: { 
+                    type: Type.STRING, 
+                    enum: [
+                        QuestionType.MCQ, 
+                        QuestionType.BOOLEAN, 
+                        QuestionType.SHORT_ANSWER,
+                        QuestionType.MATCHING
+                    ] 
+                },
                 points: { type: Type.NUMBER },
                 options: { type: Type.ARRAY, items: { type: Type.STRING } },
                 correctAnswer: { type: Type.STRING },
+                matchingPairs: { 
+                    type: Type.ARRAY, 
+                    items: { 
+                        type: Type.OBJECT, 
+                        properties: {
+                            left: { type: Type.STRING },
+                            right: { type: Type.STRING }
+                        }
+                    } 
+                },
                 explanation: { type: Type.STRING }
             },
-            required: ["text", "type", "points", "correctAnswer"]
+            required: ["text", "type", "points"]
         }
     };
 
@@ -50,11 +68,19 @@ export const GeminiService = {
     const prompt = `
       Génère un quiz de ${count} questions sur le sujet : "${topic}".
       Le quiz doit être OBLIGATOIREMENT en ${langName}.
-      Mélange les types de questions : Choix Multiples (MCQ), Vrai/Faux (BOOLEAN), et Réponse Courte (SHORT_ANSWER).
-      Pour MCQ, fournis 4 options.
-      ${booleanInstructions}
-      Pour SHORT_ANSWER, fournis la réponse attendue.
-      Assure-toi que le JSON est valide.
+      
+      Mélange les types de questions suivants : 
+      1. Choix Multiples (MCQ) : Fournis 4 options.
+      2. Vrai/Faux (BOOLEAN) : ${booleanInstructions}
+      3. Réponse Courte (SHORT_ANSWER) : Fournis la réponse attendue dans 'correctAnswer'.
+      4. Appariement (MATCHING) : Fournis 4 paires d'éléments liés dans 'matchingPairs' (ex: Pays/Capitale, Mot/Définition).
+      
+      IMPORTANT POUR LE TYPE 'MATCHING':
+      - Ne remplis PAS 'options' ni 'correctAnswer'.
+      - Remplis UNIQUEMENT le tableau 'matchingPairs' avec 4 objets {left: string, right: string}.
+      
+      Répartis les types de manière équilibrée.
+      Assure-toi que le JSON est valide et respecte le schéma.
     `;
 
     try {
@@ -76,7 +102,7 @@ export const GeminiService = {
         points: q.points || 1,
         options: q.options || [],
         correctAnswer: q.type === 'BOOLEAN' ? (String(q.correctAnswer).toLowerCase() === 'vrai' || String(q.correctAnswer).toLowerCase() === 'true') : q.correctAnswer,
-        matchingPairs: []
+        matchingPairs: q.matchingPairs || []
       }));
     } catch (error) {
       console.error("Gemini generation error", error);

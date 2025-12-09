@@ -17,8 +17,8 @@ Avant de commencer, assurez-vous d'avoir :
 ### 1. Cloner le dépôt
 Ouvrez votre terminal (PowerShell, CMD ou Terminal) :
 ```bash
-git clone https://github.com/VOTRE_NOM_UTILISATEUR/tinmel.git
-cd tinmel
+git clone https://github.com/LahcenOub/tinmel-lms.git
+cd tinmel-lms
 ```
 
 ### 2. Installer les dépendances

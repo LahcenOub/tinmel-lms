@@ -1,8 +1,12 @@
+
 {
-  "name": "tinmel-opensource",
+  "name": "tinmel-lms",
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "license": "MIT",
+  "description": "LMS Open Source sous licence MIT - L'éducation doit rester libre.",
+  "author": "Lahcen Oub",
   "scripts": {
     "start": "vite",
     "server": "node server.js",

@@ -19,8 +19,8 @@ Ce projet est une réponse "Proof of Concept" (PoC) pour démontrer qu'un LMS pu
 ## ✨ Fonctionnalités Clés
 
 ### 🧠 Intelligence Artificielle (Gemini 2.5)
-*   **Génération de Quiz :** Création automatique de QCM, Vrai/Faux et questions ouvertes à partir d'un simple sujet.
-*   **Correction Assistée :** Analyse sémantique des réponses courtes et des essais par l'IA.
+*   **Génération de Quiz Avancée :** Création automatique de tout genre de quiz à partir d'un simple sujet (QCM, Vrai/Faux, Questions ouvertes, Appariement, QCM Image).
+*   **Correction Assistée :** Analyse sémantique des réponses courtes et des essais par l'IA pour un gain de temps précieux.
 
 ### 🏫 Gestion Scolaire
 *   **Architecture Multi-Niveaux :**
@@ -53,7 +53,7 @@ Ce projet est une réponse "Proof of Concept" (PoC) pour démontrer qu'un LMS pu
 ```bash
 # 1. Cloner le dépôt
 git clone https://github.com/LahcenOub/tinmel-lms.git
-cd tinmel
+cd tinmel-lms
 
 # 2. Installer les dépendances
 npm install
@@ -68,9 +68,6 @@ npm run dev
 
 Ouvrez **http://localhost:3000**.
 *   **Admin par défaut :** `admin` / `password123`
-
-## 📸 Aperçus
-*(Ajoutez ici des captures d'écran de votre application : Dashboard Admin, Quiz Taker, etc.)*
 
 ## 🤝 Contribution & Hacktoberfest
 

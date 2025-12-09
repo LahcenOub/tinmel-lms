@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole } from './types';
 import { StorageService } from './services/storageService';
@@ -454,48 +453,44 @@ const AppContent: React.FC = () => {
                 <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden border border-white/50">
                     <div className={`p-8 ${currentPath === '/login/student' ? 'bg-gradient-to-r from-blue-600 to-blue-500' : 'bg-gradient-to-r from-gray-900 to-gray-800'} text-white text-center`}>
                          {currentPath === '/login/student' ? <GraduationCap className="w-12 h-12 mx-auto mb-2 drop-shadow-md"/> : <Building2 className="w-12 h-12 mx-auto mb-2 drop-shadow-md"/>}
-                         <h2 className="text-2xl font-bold font-logo tracking-wide">
-                             {currentPath === '/login/student' ? t('loginStudent') : t('loginStaff')}
-                         </h2>
-                         {currentPath === '/login/staff' && <p className="text-gray-300 text-xs mt-2 uppercase tracking-widest">{t('staffSpace')}</p>}
+                         <h2 className="text-2xl font-bold mb-1">{currentPath === '/login/student' ? t('loginStudent') : t('loginStaff')}</h2>
+                         <p className="text-white/80 text-sm">{currentPath === '/login/student' ? t('studentDesc') : t('staffDesc')}</p>
                     </div>
+                    
+                    <form onSubmit={(e) => handleLogin(e, currentPath === '/login/student' ? 'STUDENT' : 'STAFF')} className="p-8 space-y-5">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">{t('username')}</label>
+                            <input
+                                type="text"
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">{t('password')}</label>
+                            <input
+                                type="password"
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                        </div>
 
-                    <div className="p-8">
-                        <form onSubmit={(e) => handleLogin(e, currentPath === '/login/student' ? 'STUDENT' : 'STAFF')} className="space-y-5">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">{t('username')}</label>
-                                <input
-                                    type="text"
-                                    className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    autoFocus
-                                />
+                         {error && (
+                            <div className="p-3 bg-red-50 text-red-600 text-sm rounded border border-red-200 flex items-center gap-2 animate-fade-in">
+                                <AlertTriangle className="w-4 h-4"/> {error}
                             </div>
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">{t('password')}</label>
-                                <input
-                                    type="password"
-                                    className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
-                            </div>
-                            
-                            {error && (
-                                <div className="p-3 bg-red-50 text-red-600 text-sm rounded border border-red-200 flex items-center gap-2">
-                                    <AlertTriangle className="w-4 h-4"/> {error}
-                                </div>
-                            )}
+                        )}
 
-                            <button
-                                type="submit"
-                                className={`w-full py-3 px-4 text-white font-bold rounded-lg transition transform hover:scale-[1.02] shadow-lg ${currentPath === '/login/student' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-800 hover:bg-gray-900'}`}
-                            >
-                                {t('login')}
-                            </button>
-                        </form>
-                    </div>
+                        <button
+                            type="submit"
+                            className={`w-full py-4 px-4 font-bold rounded-lg text-white transition transform hover:scale-[1.02] shadow-lg flex justify-center items-center gap-2 ${currentPath === '/login/student' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-800 hover:bg-gray-900'}`}
+                        >
+                            {t('login')} {currentPath === '/login/student' ? <ArrowLeft className="w-5 h-5 rotate-180 rtl:rotate-0"/> : <Lock className="w-4 h-4"/>}
+                        </button>
+                    </form>
                 </div>
             </div>
         )}
@@ -503,10 +498,12 @@ const AppContent: React.FC = () => {
   );
 };
 
-const App: React.FC = () => (
+const App: React.FC = () => {
+  return (
     <LanguageProvider>
-        <AppContent />
+      <AppContent />
     </LanguageProvider>
-);
+  );
+};
 
 export default App;
