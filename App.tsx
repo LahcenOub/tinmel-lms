@@ -9,7 +9,7 @@ import ProfessorDashboard from './components/Dashboards/ProfessorDashboard';
 import StudentDashboard from './components/Dashboards/StudentDashboard';
 import ModeratorDashboard from './components/Dashboards/ModeratorDashboard';
 import CoordinatorDashboard from './components/Dashboards/CoordinatorDashboard';
-import { GraduationCap, ArrowLeft, Languages, Building2, AlertTriangle, Loader2, CheckCircle, Lock, Database, ShieldCheck, Github, ExternalLink, Trash2, Server } from 'lucide-react';
+import { GraduationCap, ArrowLeft, Languages, Building2, AlertTriangle, Loader2, CheckCircle, Lock, Database, ShieldCheck, Github, ExternalLink, Trash2, Server, Star, Brain, PenTool } from 'lucide-react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
 // Background Component
@@ -182,9 +182,21 @@ const LandingPage: React.FC = () => {
                      <p className="text-blue-100 text-2xl font-light drop-shadow-md bg-blue-900/30 px-6 py-2 rounded-full backdrop-blur-sm inline-block border border-blue-400/30">
                          {t('slogan')}
                      </p>
+                     
+                     <div className="flex flex-wrap gap-4 mt-6 justify-center">
+                         <div className="flex items-center gap-2 bg-blue-800/40 px-3 py-1 rounded-full text-blue-200 text-sm backdrop-blur-sm border border-blue-500/30">
+                             <CheckCircle className="w-3 h-3"/> <span>QCM & Images</span>
+                         </div>
+                         <div className="flex items-center gap-2 bg-blue-800/40 px-3 py-1 rounded-full text-blue-200 text-sm backdrop-blur-sm border border-blue-500/30">
+                             <PenTool className="w-3 h-3"/> <span>Rédaction & Appariement</span>
+                         </div>
+                         <div className="flex items-center gap-2 bg-blue-800/40 px-3 py-1 rounded-full text-blue-200 text-sm backdrop-blur-sm border border-blue-500/30">
+                             <Brain className="w-3 h-3"/> <span>Correction IA</span>
+                         </div>
+                     </div>
                  </div>
 
-                 <div className="w-full max-w-md space-y-4 my-12">
+                 <div className="w-full max-w-md space-y-4 my-10">
                      <button 
                         onClick={() => navigate('/login/student')}
                         className="w-full bg-white/10 backdrop-blur-md hover:bg-white/20 border border-white/20 p-8 rounded-2xl transition-all transform hover:-translate-y-2 group shadow-2xl hover:shadow-blue-500/20 flex flex-col items-center text-center"
@@ -365,29 +377,13 @@ const LoginPage: React.FC<LoginProps> = ({ role, onLoginSuccess }) => {
     );
 };
 
-const DashboardRouter: React.FC<{ user: User, onLogout: () => void, autoLaunchQuizId?: string | null }> = ({ user, onLogout, autoLaunchQuizId }) => {
-    switch (user.role) {
-        case UserRole.ADMIN:
-          return <AdminDashboard onLogout={onLogout} />;
-        case UserRole.MODERATOR:
-          return <ModeratorDashboard user={user} onLogout={onLogout} />;
-        case UserRole.COORDINATOR:
-          return <CoordinatorDashboard user={user} onLogout={onLogout} />;
-        case UserRole.PROFESSOR:
-          return <ProfessorDashboard user={user} onLogout={onLogout} />;
-        case UserRole.STUDENT:
-          return <StudentDashboard user={user} onLogout={onLogout} autoLaunchQuizId={autoLaunchQuizId} />;
-        default:
-          return <div className="p-10 text-center">Role inconnu</div>;
-    }
-};
-
 const AdminPortal: React.FC<{ onLoginSuccess: (user: User) => void }> = ({ onLoginSuccess }) => {
     const [isInstalled, setIsInstalled] = useState<boolean | null>(null);
     const [loading, setLoading] = useState(true);
     const { dir } = useLanguage();
     const navigate = useNavigate();
     const location = useLocation();
+    const user = StorageService.getSession();
 
     useEffect(() => {
         const check = async () => {
@@ -424,15 +420,19 @@ const AdminPortal: React.FC<{ onLoginSuccess: (user: User) => void }> = ({ onLog
              ) : (
                 <Routes>
                     <Route path="login" element={
-                        <>
-                            <LoginPage role="ADMIN" onLoginSuccess={onLoginSuccess} />
-                             {/* Factory Reset button hidden on login page for emergencies */}
-                             <div className="absolute bottom-4 left-4 z-20">
-                                 <button onClick={handleHardReset} className="text-xs text-red-500/50 hover:text-red-500 flex items-center gap-1 transition">
-                                     <Trash2 className="w-3 h-3"/> Reset
-                                 </button>
-                             </div>
-                        </>
+                        user && user.role === UserRole.ADMIN ? (
+                             <Navigate to="/admin" replace />
+                        ) : (
+                            <>
+                                <LoginPage role="ADMIN" onLoginSuccess={onLoginSuccess} />
+                                {/* Factory Reset button hidden on login page for emergencies */}
+                                <div className="absolute bottom-4 left-4 z-20">
+                                    <button onClick={handleHardReset} className="text-xs text-red-500/50 hover:text-red-500 flex items-center gap-1 transition">
+                                        <Trash2 className="w-3 h-3"/> Reset
+                                    </button>
+                                </div>
+                            </>
+                        )
                     } />
                     <Route path="*" element={<Navigate to="login" replace />} />
                 </Routes>
@@ -467,21 +467,27 @@ const AppContent: React.FC = () => {
       init();
   }, []);
 
+  const getDashboardPath = (role: UserRole) => {
+      switch(role) {
+          case UserRole.ADMIN: return '/admin';
+          case UserRole.PROFESSOR: return '/professor';
+          case UserRole.STUDENT: return '/student';
+          case UserRole.COORDINATOR: return '/coordinator';
+          case UserRole.MODERATOR: return '/moderator';
+          default: return '/';
+      }
+  };
+
   const handleLoginSuccess = (loggedInUser: User) => {
       StorageService.saveSession(loggedInUser);
       setUser(loggedInUser);
-      navigate('/dashboard');
+      navigate(getDashboardPath(loggedInUser.role));
   };
 
   const handleLogout = () => {
       StorageService.clearSession();
       setUser(null);
-      // Determine where to redirect based on role
-      if (user?.role === UserRole.ADMIN) {
-          navigate('/tinmelad/login');
-      } else {
-          navigate('/');
-      }
+      navigate('/');
   };
 
   if (loading) {
@@ -498,29 +504,58 @@ const AppContent: React.FC = () => {
   return (
     <Routes>
         {/* Public Routes */}
-        <Route path="/" element={!user ? <LandingPage /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/" element={!user ? <LandingPage /> : <Navigate to={getDashboardPath(user.role)} replace />} />
         
         <Route path="/login/student" element={
-            !user ? <LoginPage role="STUDENT" onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/dashboard" replace />
+            !user ? <LoginPage role="STUDENT" onLoginSuccess={handleLoginSuccess} /> : <Navigate to={getDashboardPath(user.role)} replace />
         } />
         
         <Route path="/login/staff" element={
-            !user ? <LoginPage role="STAFF" onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/dashboard" replace />
+            !user ? <LoginPage role="STAFF" onLoginSuccess={handleLoginSuccess} /> : <Navigate to={getDashboardPath(user.role)} replace />
         } />
 
         {/* Admin Portal Routes */}
         <Route path="/tinmelad/*" element={
-            !user || user.role !== UserRole.ADMIN ? (
-                <AdminPortal onLoginSuccess={handleLoginSuccess} />
+            <AdminPortal onLoginSuccess={handleLoginSuccess} />
+        } />
+
+        {/* Protected Routes - Role Based Separation */}
+        
+        <Route path="/admin/*" element={
+            user && user.role === UserRole.ADMIN ? (
+                <AdminDashboard onLogout={handleLogout} />
             ) : (
-                <Navigate to="/dashboard" replace />
+                <Navigate to="/" replace />
             )
         } />
 
-        {/* Protected Routes */}
-        <Route path="/dashboard/*" element={
-            user ? (
-                <DashboardRouter user={user} onLogout={handleLogout} autoLaunchQuizId={autoLaunchQuizId} />
+        <Route path="/professor/*" element={
+            user && user.role === UserRole.PROFESSOR ? (
+                <ProfessorDashboard user={user} onLogout={handleLogout} />
+            ) : (
+                <Navigate to="/" replace />
+            )
+        } />
+
+        <Route path="/student/*" element={
+            user && user.role === UserRole.STUDENT ? (
+                <StudentDashboard user={user} onLogout={handleLogout} autoLaunchQuizId={autoLaunchQuizId} />
+            ) : (
+                <Navigate to="/" replace />
+            )
+        } />
+
+        <Route path="/coordinator/*" element={
+            user && user.role === UserRole.COORDINATOR ? (
+                <CoordinatorDashboard user={user} onLogout={handleLogout} />
+            ) : (
+                <Navigate to="/" replace />
+            )
+        } />
+
+        <Route path="/moderator/*" element={
+            user && user.role === UserRole.MODERATOR ? (
+                <ModeratorDashboard user={user} onLogout={handleLogout} />
             ) : (
                 <Navigate to="/" replace />
             )

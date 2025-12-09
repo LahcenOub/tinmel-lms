@@ -458,9 +458,9 @@ const QuizBuilderWrapper: React.FC<{ user: User }> = ({ user }) => {
             profId={user.id} 
             onSave={(quiz) => {
                 StorageService.saveQuiz(quiz);
-                navigate('../quizzes'); // Go back to list
+                navigate('/professor/quizzes');
             }} 
-            onCancel={() => navigate('../quizzes')} 
+            onCancel={() => navigate('/professor/quizzes')} 
             availableClasses={assignedClasses} 
         />
     );
@@ -476,7 +476,7 @@ const LessonBuilderWrapper: React.FC<{ user: User }> = ({ user }) => {
         if (!form.title || !form.content) return;
         const newLesson: Lesson = { id: `les-${Date.now()}`, professorId: user.id, title: form.title, description: form.desc, assignedClasses: form.classes, type: form.type, contentUrl: form.content, createdAt: new Date().toISOString(), status: form.status };
         StorageService.saveLesson(newLesson);
-        navigate('../lessons');
+        navigate('/professor/lessons');
     };
 
     const toggleClass = (cls: string) => {
@@ -521,7 +521,7 @@ const LessonBuilderWrapper: React.FC<{ user: User }> = ({ user }) => {
                </div>
            </div>
            <div className="flex justify-end gap-3 mt-8 pt-4 border-t">
-               <button onClick={() => navigate('../lessons')} className="px-4 py-2 text-gray-600 hover:text-gray-800">{t('cancel')}</button>
+               <button onClick={() => navigate('/professor/lessons')} className="px-4 py-2 text-gray-600 hover:text-gray-800">{t('cancel')}</button>
                <button onClick={handleSave} className="px-6 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 flex items-center gap-2">
                    <Save className="h-4 w-4 rtl:flip" /> {t('save')}
                </button>
@@ -554,8 +554,8 @@ const ProfessorDashboard: React.FC<Props> = ({ user: initialUser, onLogout }) =>
       return () => clearInterval(interval);
   }, [currentUser]);
 
-  // Check active route for styling
-  const isActive = (path: string) => location.pathname.includes(`/dashboard/${path}`);
+  // Check active route for styling - Updated to check /professor/ path
+  const isActive = (path: string) => location.pathname.includes(`/professor/${path}`);
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col" dir={dir}>
@@ -587,7 +587,7 @@ const ProfessorDashboard: React.FC<Props> = ({ user: initialUser, onLogout }) =>
                ].map(tab => (
                    <Link 
                        key={tab.id} 
-                       to={tab.id} 
+                       to={`/professor/${tab.id}`} 
                        className={`pb-2 px-4 flex items-center gap-2 border-b-2 transition-colors relative ${isActive(tab.id) ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                    >
                        <tab.icon className="w-4 h-4"/> {tab.label}

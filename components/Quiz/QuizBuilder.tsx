@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Quiz, Question, QuestionType, MatchingPair } from '../../types';
-import { Plus, Trash2, Save, Wand2, RefreshCcw, Lock, Clock, Calendar, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Save, Wand2, RefreshCcw, Lock, Clock, Calendar, Image as ImageIcon, CheckSquare, Type, Split, AlignLeft, List, MousePointerClick, MessageSquare } from 'lucide-react';
 import { GeminiService } from '../../services/geminiService';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -36,6 +37,10 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
       matchingPairs: type === QuestionType.MATCHING ? [{ left: '', right: '' }, { left: '', right: '' }] : undefined
     };
     setQuestions([...questions, newQ]);
+    // Scroll to bottom after adding
+    setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }, 100);
   };
 
   const updateQuestion = (id: string, updates: Partial<Question>) => {
@@ -61,7 +66,6 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
     if (!genTopic) return;
     setIsGenerating(true);
     try {
-      // Pass the current UI language to generating service
       const generatedQuestions = await GeminiService.generateQuizQuestions(genTopic, 5, language);
       setQuestions([...questions, ...generatedQuestions]);
     } catch (e) {
@@ -73,6 +77,8 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
 
   const handleSave = () => {
     if (!title) return alert("Le titre est obligatoire");
+    if (questions.length === 0) return alert("Ajoutez au moins une question.");
+    
     const quiz: Quiz = {
       id: `quiz-${Date.now()}`,
       title,
@@ -96,9 +102,33 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
       );
   };
 
+  const getTypeIcon = (type: QuestionType) => {
+      switch(type) {
+          case QuestionType.MCQ: return <List className="w-5 h-5"/>;
+          case QuestionType.IMAGE_MCQ: return <ImageIcon className="w-5 h-5"/>;
+          case QuestionType.BOOLEAN: return <CheckSquare className="w-5 h-5"/>;
+          case QuestionType.SHORT_ANSWER: return <Type className="w-5 h-5"/>;
+          case QuestionType.ESSAY: return <AlignLeft className="w-5 h-5"/>;
+          case QuestionType.MATCHING: return <Split className="w-5 h-5"/>;
+          default: return <Plus className="w-5 h-5"/>;
+      }
+  };
+
+  const questionTypes = [
+    { type: QuestionType.MCQ, label: "QCM Texte", desc: "Questions à choix multiples classiques", icon: List, color: "bg-blue-50 text-blue-600 border-blue-200" },
+    { type: QuestionType.IMAGE_MCQ, label: "QCM Image", desc: "Questions basées sur un visuel", icon: ImageIcon, color: "bg-purple-50 text-purple-600 border-purple-200" },
+    { type: QuestionType.BOOLEAN, label: "Vrai / Faux", desc: "Réponse binaire simple", icon: CheckSquare, color: "bg-green-50 text-green-600 border-green-200" },
+    { type: QuestionType.SHORT_ANSWER, label: "Réponse Courte", desc: "Un mot ou une phrase exacte", icon: Type, color: "bg-orange-50 text-orange-600 border-orange-200" },
+    { type: QuestionType.MATCHING, label: "Appariement", desc: "Relier des éléments entre eux", icon: Split, color: "bg-pink-50 text-pink-600 border-pink-200" },
+    { type: QuestionType.ESSAY, label: "Rédaction (IA)", desc: "Analyse sémantique par IA", icon: MessageSquare, color: "bg-indigo-50 text-indigo-600 border-indigo-200" }
+  ];
+
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 max-w-4xl mx-auto" dir={dir}>
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">{t('newQuiz')}</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">{t('newQuiz')}</h2>
+        <div className="text-sm text-gray-500">{questions.length} questions</div>
+      </div>
       
       {/* Basic Info */}
       <div className="grid gap-4 mb-8 border-b pb-6">
@@ -109,6 +139,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
                 className="mt-1 block w-full rounded-md border border-gray-300 p-2 focus:ring-blue-500 focus:border-blue-500"
                 value={title} 
                 onChange={(e) => setTitle(e.target.value)} 
+                placeholder="Ex: Évaluation Mathématiques Chap 1"
               />
             </div>
             <div>
@@ -139,6 +170,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
             className="mt-1 block w-full rounded-md border border-gray-300 p-2 focus:ring-blue-500 focus:border-blue-500"
             value={description} 
             onChange={(e) => setDescription(e.target.value)}
+            placeholder="Instructions pour les élèves..."
           />
         </div>
 
@@ -191,91 +223,106 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
         </div>
         
         <div className="flex items-center gap-2 mt-2">
-            <input 
-                type="checkbox" 
-                id="publish"
-                checked={isPublished}
-                onChange={(e) => setIsPublished(e.target.checked)}
-                className="h-5 w-5 text-blue-600"
-            />
-            <label htmlFor="publish" className="font-medium text-gray-700 cursor-pointer">{t('publishNow')}</label>
+            <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} className="sr-only peer" />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <span className="ml-3 text-sm font-medium text-gray-700">{t('publishNow')}</span>
+            </label>
         </div>
       </div>
 
       {/* AI Generator */}
-      <div className="bg-indigo-50 p-4 rounded-md mb-8 border border-indigo-100 flex gap-2 items-end">
+      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 p-4 rounded-xl mb-8 border border-indigo-100 flex gap-4 items-center">
+         <div className="p-3 bg-white rounded-full shadow-sm">
+             <Wand2 className="h-6 w-6 text-indigo-600 rtl:flip"/>
+         </div>
          <div className="flex-1">
-             <label className="block text-sm font-medium text-indigo-900">{t('aiGen')}</label>
+             <h3 className="text-sm font-bold text-indigo-900 mb-1">{t('aiGen')}</h3>
              <input 
-                className="mt-1 block w-full rounded-md border border-indigo-200 p-2"
+                className="block w-full rounded-md border border-indigo-200 p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                 placeholder={t('aiPlaceholder')}
                 value={genTopic}
                 onChange={(e) => setGenTopic(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleGenerateAI()}
              />
          </div>
          <button 
             onClick={handleGenerateAI}
             disabled={isGenerating || !genTopic}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 font-medium shadow-sm transition-transform active:scale-95"
          >
-             {isGenerating ? <RefreshCcw className="animate-spin h-4 w-4"/> : <Wand2 className="h-4 w-4 rtl:flip"/>}
+             {isGenerating ? <RefreshCcw className="animate-spin h-4 w-4"/> : <span className="text-lg">✨</span>}
              {t('generate')}
          </button>
       </div>
 
       {/* Questions List */}
       <div className="space-y-6 mb-8">
+        {questions.length === 0 && (
+            <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex flex-col items-center justify-center">
+                <div className="bg-gray-100 p-4 rounded-full mb-3"><Plus className="w-6 h-6 text-gray-400"/></div>
+                <div className="text-gray-500 font-medium mb-1">Le quiz est vide</div>
+                <div className="text-sm text-gray-400">Sélectionnez un type de question ci-dessous pour commencer.</div>
+            </div>
+        )}
+        
         {questions.map((q, idx) => (
-          <div key={q.id} className="border rounded-md p-4 bg-gray-50 relative group">
-            <button 
-                type="button"
-                onClick={() => removeQuestion(q.id)}
-                className="absolute top-2 end-2 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-                <Trash2 className="h-5 w-5" />
-            </button>
-            <div className="flex items-center gap-2 mb-2">
-                <span className="font-bold text-gray-500">Q{idx + 1}.</span>
-                <span className="text-xs font-semibold bg-gray-200 px-2 py-1 rounded text-gray-700">
-                    {t(q.type)}
+          <div key={q.id} className="border border-gray-200 rounded-lg p-5 bg-white shadow-sm relative group hover:border-blue-300 transition-colors">
+            <div className="absolute top-4 end-4 flex gap-2">
+                <span className="text-xs font-semibold bg-gray-100 px-2 py-1 rounded text-gray-600 uppercase tracking-wider flex items-center gap-1">
+                    {getTypeIcon(q.type)} {t(q.type)}
+                </span>
+                <button 
+                    type="button"
+                    onClick={() => removeQuestion(q.id)}
+                    className="text-gray-400 hover:text-red-500 transition-colors"
+                >
+                    <Trash2 className="h-5 w-5" />
+                </button>
+            </div>
+
+            <div className="flex items-center gap-3 mb-4 pr-24">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm shrink-0">
+                    {idx + 1}
                 </span>
                 <input 
-                    type="number"
-                    min="1"
-                    value={q.points}
-                    onChange={(e) => updateQuestion(q.id, { points: parseInt(e.target.value) })}
-                    className="w-16 text-sm border rounded p-1"
-                    title={t('points')}
+                    className="w-full p-2 border-b border-gray-300 focus:border-blue-500 outline-none font-medium text-lg bg-transparent placeholder-gray-400"
+                    value={q.text}
+                    onChange={(e) => updateQuestion(q.id, { text: e.target.value })}
+                    placeholder={t('questionLabel')}
                 />
+                <div className="flex flex-col items-center shrink-0">
+                    <input 
+                        type="number"
+                        min="1"
+                        value={q.points}
+                        onChange={(e) => updateQuestion(q.id, { points: parseInt(e.target.value) })}
+                        className="w-12 text-center text-sm border rounded p-1 font-bold"
+                    />
+                    <span className="text-[10px] text-gray-500 uppercase">{t('points')}</span>
+                </div>
             </div>
-            
-            <input 
-                className="w-full mb-3 p-2 border rounded font-medium"
-                value={q.text}
-                onChange={(e) => updateQuestion(q.id, { text: e.target.value })}
-                placeholder={t('questionLabel')}
-            />
 
              {/* Image Upload for Image MCQ */}
              {q.type === QuestionType.IMAGE_MCQ && (
-              <div className="mb-4 ms-4">
+              <div className="mb-4 ms-11">
                 <div className="flex items-center gap-4">
                   {q.imageUrl ? (
-                    <div className="relative">
-                      <img src={q.imageUrl} alt="Question" className="h-32 w-auto object-cover rounded border" />
+                    <div className="relative group/image">
+                      <img src={q.imageUrl} alt="Question" className="h-40 w-auto object-cover rounded-lg border shadow-sm" />
                       <button 
                         type="button"
                         onClick={() => updateQuestion(q.id, { imageUrl: undefined })}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors shadow-sm"
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-md hover:bg-red-600 transition-transform hover:scale-110"
                         title={t('delete')}
                       >
-                        X
+                        <Trash2 className="w-3 h-3"/>
                       </button>
                     </div>
                   ) : (
-                    <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded cursor-pointer hover:bg-gray-100 transition-colors">
-                        <ImageIcon className="text-gray-400 w-8 h-8"/>
-                        <span className="text-xs text-gray-500 mt-1">{t('upload')}</span>
+                    <label className="flex flex-col items-center justify-center w-full max-w-sm h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors">
+                        <ImageIcon className="text-gray-400 w-8 h-8 mb-2"/>
+                        <span className="text-sm text-gray-500 font-medium">{t('upload')}</span>
                         <input 
                             type="file" 
                             accept="image/*" 
@@ -289,103 +336,145 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
               </div>
             )}
 
-            {/* MCQ */}
+            {/* MCQ & Image MCQ Options */}
             {(q.type === QuestionType.MCQ || q.type === QuestionType.IMAGE_MCQ) && (
-                <div className="space-y-2 ms-4">
+                <div className="space-y-2 ms-11">
                     {q.options?.map((opt, oIdx) => (
-                        <div key={oIdx} className="flex items-center gap-2">
+                        <div key={oIdx} className="flex items-center gap-3 group/option">
                             <input 
                                 type="radio" 
                                 name={`correct-${q.id}`} 
-                                checked={q.correctAnswer === opt} 
+                                checked={q.correctAnswer === opt && opt !== ''} 
                                 onChange={() => updateQuestion(q.id, { correctAnswer: opt })}
+                                className="w-4 h-4 text-blue-600 cursor-pointer"
+                                title="Marquer comme réponse correcte"
                             />
-                            <input 
-                                className="flex-1 p-1 border rounded text-sm"
-                                value={opt}
-                                onChange={(e) => {
-                                    const newOpts = [...(q.options || [])];
-                                    newOpts[oIdx] = e.target.value;
-                                    updateQuestion(q.id, { options: newOpts });
-                                }}
-                                placeholder={`${t('option')} ${oIdx + 1}`}
-                            />
+                            <div className="flex-1 relative">
+                                <input 
+                                    className={`w-full p-2 border rounded text-sm transition-colors ${q.correctAnswer === opt && opt !== '' ? 'border-green-500 bg-green-50' : 'focus:border-blue-400'}`}
+                                    value={opt}
+                                    onChange={(e) => {
+                                        const newOpts = [...(q.options || [])];
+                                        newOpts[oIdx] = e.target.value;
+                                        // Update correct answer if changed
+                                        const updates: Partial<Question> = { options: newOpts };
+                                        if (q.correctAnswer === opt) updates.correctAnswer = e.target.value;
+                                        updateQuestion(q.id, updates);
+                                    }}
+                                    placeholder={`${t('option')} ${oIdx + 1}`}
+                                />
+                                {q.options && q.options.length > 2 && (
+                                    <button 
+                                        onClick={() => {
+                                            const newOpts = q.options?.filter((_, i) => i !== oIdx);
+                                            updateQuestion(q.id, { options: newOpts });
+                                        }}
+                                        className="absolute right-2 top-2 text-gray-300 hover:text-red-500 opacity-0 group-hover/option:opacity-100 transition-opacity"
+                                    >
+                                        <Trash2 className="w-4 h-4"/>
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     ))}
                     <button 
-                        className="text-xs text-blue-600 hover:underline"
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 mt-2"
                         onClick={() => updateQuestion(q.id, { options: [...(q.options || []), ''] })}
                     >
-                        + {t('addOption')}
+                        <Plus className="w-4 h-4"/> {t('addOption')}
                     </button>
                 </div>
             )}
 
             {/* Boolean */}
             {q.type === QuestionType.BOOLEAN && (
-                 <div className="flex gap-4 ms-4 mt-2">
-                    <label className="flex items-center gap-2">
-                        <input type="radio" checked={q.correctAnswer === true} onChange={() => updateQuestion(q.id, { correctAnswer: true })} />
+                 <div className="flex gap-4 ms-11 mt-4">
+                    <button 
+                        onClick={() => updateQuestion(q.id, { correctAnswer: true })}
+                        className={`flex-1 py-3 px-4 rounded-lg border-2 font-bold transition-all ${q.correctAnswer === true ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 hover:border-gray-300'}`}
+                    >
                         {t('true')}
-                    </label>
-                    <label className="flex items-center gap-2">
-                        <input type="radio" checked={q.correctAnswer === false} onChange={() => updateQuestion(q.id, { correctAnswer: false })} />
+                    </button>
+                    <button 
+                        onClick={() => updateQuestion(q.id, { correctAnswer: false })}
+                        className={`flex-1 py-3 px-4 rounded-lg border-2 font-bold transition-all ${q.correctAnswer === false ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200 hover:border-gray-300'}`}
+                    >
                         {t('false')}
-                    </label>
+                    </button>
                  </div>
             )}
 
             {/* Short Answer */}
             {(q.type === QuestionType.SHORT_ANSWER) && (
-                <div className="ms-4 mt-2">
-                    <label className="block text-xs text-gray-500">{t('expectedAnswer')} :</label>
+                <div className="ms-11 mt-2">
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('expectedAnswer')} :</label>
                     <input 
-                        className="w-full border rounded p-2"
+                        className="w-full border-2 border-green-100 rounded-lg p-3 text-green-800 focus:border-green-300 focus:outline-none bg-green-50/50"
                         value={q.correctAnswer as string || ''}
                         onChange={(e) => updateQuestion(q.id, { correctAnswer: e.target.value })}
+                        placeholder="Réponse exacte attendue..."
                     />
                 </div>
             )}
             
             {q.type === QuestionType.ESSAY && (
-                <div className="ms-4 mt-2 text-sm text-gray-500 italic">
-                    {t('aiEssayWarning')}
+                <div className="ms-11 mt-2 p-4 bg-yellow-50 rounded-lg border border-yellow-100 text-sm text-yellow-800 flex items-start gap-2">
+                    <Wand2 className="w-5 h-5 shrink-0"/>
+                    <div>
+                        <p className="font-bold mb-1">Correction IA activée</p>
+                        {t('aiEssayWarning')}
+                    </div>
                 </div>
             )}
 
             {/* Matching */}
             {q.type === QuestionType.MATCHING && (
-                <div className="ms-4 mt-2 space-y-2">
+                <div className="ms-11 mt-2 space-y-3">
                     {q.matchingPairs?.map((pair, pIdx) => (
-                        <div key={pIdx} className="flex gap-2 items-center">
-                            <input 
-                                placeholder={t('matchingA')}
-                                className="flex-1 border rounded p-1 text-sm"
-                                value={pair.left}
-                                onChange={(e) => {
-                                    const newPairs = [...(q.matchingPairs || [])];
-                                    newPairs[pIdx] = { ...pair, left: e.target.value };
+                        <div key={pIdx} className="flex gap-3 items-center group/pair">
+                            <div className="flex-1 flex items-center gap-2">
+                                <span className="text-gray-400 font-mono text-xs">A</span>
+                                <input 
+                                    placeholder={t('matchingA')}
+                                    className="w-full border rounded p-2 text-sm focus:ring-1 focus:ring-blue-500"
+                                    value={pair.left}
+                                    onChange={(e) => {
+                                        const newPairs = [...(q.matchingPairs || [])];
+                                        newPairs[pIdx] = { ...pair, left: e.target.value };
+                                        updateQuestion(q.id, { matchingPairs: newPairs });
+                                    }}
+                                />
+                            </div>
+                            <Split className="text-gray-300 w-4 h-4 shrink-0"/>
+                            <div className="flex-1 flex items-center gap-2">
+                                <span className="text-gray-400 font-mono text-xs">B</span>
+                                <input 
+                                    placeholder={t('matchingB')}
+                                    className="w-full border rounded p-2 text-sm focus:ring-1 focus:ring-blue-500"
+                                    value={pair.right}
+                                    onChange={(e) => {
+                                        const newPairs = [...(q.matchingPairs || [])];
+                                        newPairs[pIdx] = { ...pair, right: e.target.value };
+                                        updateQuestion(q.id, { matchingPairs: newPairs });
+                                    }}
+                                />
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    const newPairs = q.matchingPairs?.filter((_, i) => i !== pIdx);
                                     updateQuestion(q.id, { matchingPairs: newPairs });
                                 }}
-                            />
-                            <span className="text-gray-400">↔</span>
-                            <input 
-                                placeholder={t('matchingB')}
-                                className="flex-1 border rounded p-1 text-sm"
-                                value={pair.right}
-                                onChange={(e) => {
-                                    const newPairs = [...(q.matchingPairs || [])];
-                                    newPairs[pIdx] = { ...pair, right: e.target.value };
-                                    updateQuestion(q.id, { matchingPairs: newPairs });
-                                }}
-                            />
+                                className="text-gray-300 hover:text-red-500 opacity-0 group-hover/pair:opacity-100 transition-opacity"
+                            >
+                                <Trash2 className="w-4 h-4"/>
+                            </button>
                         </div>
                     ))}
                      <button 
-                        className="text-xs text-blue-600 hover:underline"
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 mt-2"
                         onClick={() => updateQuestion(q.id, { matchingPairs: [...(q.matchingPairs || []), {left: '', right: ''}] })}
                     >
-                        + {t('addPair')}
+                        <Plus className="w-4 h-4"/> {t('addPair')}
                     </button>
                 </div>
             )}
@@ -394,23 +483,34 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
         ))}
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap gap-2 mb-8 justify-center">
-        {Object.values(QuestionType).map((type) => (
-            <button 
-                key={type}
-                onClick={() => addQuestion(type)}
-                className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm text-gray-700 flex items-center gap-1 transition-colors"
-            >
-                <Plus className="h-3 w-3" /> {t(type)}
-            </button>
-        ))}
+      {/* New Question Type Selector (Grid Layout) */}
+      <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
+          <h3 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wider flex items-center gap-2">
+              <Plus className="w-4 h-4"/> Ajouter une question
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {questionTypes.map((item) => (
+                  <button 
+                      key={item.type}
+                      onClick={() => addQuestion(item.type)}
+                      className={`flex flex-col items-start p-3 rounded-lg border hover:shadow-md transition-all text-left group ${item.color} bg-white hover:bg-gray-50`}
+                  >
+                      <div className={`p-2 rounded-md mb-2 group-hover:scale-110 transition-transform ${item.color.replace('bg-white', '')}`}>
+                          <item.icon className="w-5 h-5"/>
+                      </div>
+                      <span className="font-bold text-gray-800 text-sm">{item.label}</span>
+                      <span className="text-xs text-gray-500 mt-1">{item.desc}</span>
+                  </button>
+              ))}
+          </div>
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t">
-        <button onClick={onCancel} className="px-4 py-2 text-gray-600 hover:text-gray-800">{t('cancel')}</button>
-        <button onClick={handleSave} className="px-6 py-2 bg-green-600 text-white rounded shadow hover:bg-green-700 flex items-center gap-2">
-            <Save className="h-4 w-4 rtl:flip" /> {t('save')}
+      <div className="flex justify-end gap-3 pt-6 border-t mt-8">
+        <button onClick={onCancel} className="px-6 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors">
+            {t('cancel')}
+        </button>
+        <button onClick={handleSave} className="px-8 py-2.5 bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-700 hover:shadow-xl transition-all flex items-center gap-2 font-bold transform active:scale-95">
+            <Save className="h-5 w-5 rtl:flip" /> {t('save')}
         </button>
       </div>
     </div>
