@@ -52,7 +52,7 @@ Ce projet est une réponse "Proof of Concept" (PoC) pour démontrer qu'un LMS pu
 
 ```bash
 # 1. Cloner le dépôt
-git clone https://github.com/LahcenOub/tinmel.git
+git clone https://github.com/LahcenOub/tinmel-lms.git
 cd tinmel
 
 # 2. Installer les dépendances

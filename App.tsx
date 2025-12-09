@@ -423,7 +423,7 @@ const AppContent: React.FC = () => {
                      
                      <div className="text-center">
                         <p className="text-blue-300 text-xs mb-2 uppercase tracking-widest opacity-70">Licence Libre & Protégée</p>
-                        <a href="https://github.com/LahcenOub/tinmel" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 text-white/50 text-xs hover:text-white transition-colors cursor-pointer">
+                        <a href="https://github.com/LahcenOub/tinmel-lms" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 text-white/50 text-xs hover:text-white transition-colors cursor-pointer">
                              <Github className="w-4 h-4" />
                              <span>Open Source Project (MIT License)</span>
                              <ExternalLink className="w-3 h-3 opacity-50" />
