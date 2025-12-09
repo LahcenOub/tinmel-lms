@@ -1,4 +1,3 @@
-
 {
   "name": "tinmel-lms",
   "private": true,
@@ -15,29 +14,31 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "latest",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.292.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@google/genai": "latest",
-    "lucide-react": "^0.292.0",
-    "xlsx": "^0.18.5",
-    "clsx": "^2.0.0",
-    "tailwind-merge": "^2.0.0",
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
+    "react-router-dom": "^7.10.1",
     "sqlite3": "^5.1.7",
-    "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2"
+    "tailwind-merge": "^2.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/node": "^20.10.0",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
+    "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^4.2.0",
     "autoprefixer": "^10.4.16",
+    "concurrently": "^8.2.2",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.5",
     "typescript": "^5.2.2",
-    "vite": "^5.0.0",
-    "concurrently": "^8.2.2",
-    "@types/node": "^20.10.0"
+    "vite": "^5.0.0"
   }
 }
