@@ -40,7 +40,8 @@ export const GeminiService = {
                         QuestionType.MCQ, 
                         QuestionType.BOOLEAN, 
                         QuestionType.SHORT_ANSWER,
-                        QuestionType.MATCHING
+                        QuestionType.MATCHING,
+                        QuestionType.ESSAY
                     ] 
                 },
                 points: { type: Type.NUMBER },
@@ -73,7 +74,8 @@ export const GeminiService = {
       1. Choix Multiples (MCQ) : Fournis 4 options dans 'options'.
       2. Vrai/Faux (BOOLEAN) : ${booleanInstructions}
       3. Réponse Courte (SHORT_ANSWER) : Fournis la réponse attendue dans 'correctAnswer'.
-      4. Appariement (MATCHING) : Fournis 4 paires d'éléments liés dans 'matchingPairs' (ex: Pays/Capitale, Mot/Définition).
+      4. Appariement (MATCHING) : Fournis 4 paires d'éléments liés dans 'matchingPairs'.
+      5. Question Ouverte (ESSAY) : Une question de réflexion qui demande une rédaction. Laisser 'correctAnswer' vide ou fournir des mots-clés.
       
       IMPORTANT POUR LE TYPE 'MATCHING':
       - Ne remplis PAS 'options'.
