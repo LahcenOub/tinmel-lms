@@ -70,13 +70,14 @@ export const GeminiService = {
       Le quiz doit être OBLIGATOIREMENT en ${langName}.
       
       Mélange les types de questions suivants : 
-      1. Choix Multiples (MCQ) : Fournis 4 options.
+      1. Choix Multiples (MCQ) : Fournis 4 options dans 'options'.
       2. Vrai/Faux (BOOLEAN) : ${booleanInstructions}
       3. Réponse Courte (SHORT_ANSWER) : Fournis la réponse attendue dans 'correctAnswer'.
       4. Appariement (MATCHING) : Fournis 4 paires d'éléments liés dans 'matchingPairs' (ex: Pays/Capitale, Mot/Définition).
       
       IMPORTANT POUR LE TYPE 'MATCHING':
-      - Ne remplis PAS 'options' ni 'correctAnswer'.
+      - Ne remplis PAS 'options'.
+      - Ne remplis PAS 'correctAnswer'.
       - Remplis UNIQUEMENT le tableau 'matchingPairs' avec 4 objets {left: string, right: string}.
       
       Répartis les types de manière équilibrée.
