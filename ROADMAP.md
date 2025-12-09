@@ -1,25 +1,54 @@
-# 🗺️ Roadmap & Suggestions Communautaires - Tinmel LMS
 
-Ce fichier sert de pont entre la communauté GitHub et le développement. 
-Il liste les fonctionnalités prévues, en cours, et suggérées par les utilisateurs.
+# 🗺️ Roadmap Technique - Tinmel LMS
 
-## 🟢 Priorité Haute (Prochain Sprint)
-- [ ] **Mode PWA (Offline)** : Permettre l'accès aux cours sans connexion internet.
-- [ ] **Support Tifinagh** : Traduction complète de l'interface en Amazigh.
-- [ ] **Export PDF** : Permettre aux profs d'imprimer les quiz générés par IA pour les examens papier.
+Ce document trace la route entre le prototype actuel (PoC) et une version de production robuste.
 
-## 🟡 En Discussion (Suggestions GitHub)
-*Ajoutez ici les idées proposées dans les "Issues" GitHub*
+## 🔴 Priorité Haute : Architecture & Sécurité (Q2 2025)
 
-*   *(Exemple)* : Ajout d'un rôle "Parent" pour le suivi. (Suggéré par @user123)
-*   *(Exemple)* : Intégration de Zoom/Jitsi pour les classes virtuelles.
-*   *(Exemple)* : Système de badges personnalisables par l'école.
+L'objectif est de sécuriser l'application et de sortir de la dépendance au `localStorage`.
 
-## 🔴 Backlog Technique (Pour les Dév)
-- Migration de SQLite vers PostgreSQL pour la production.
-- Mise en place de Docker Compose.
-- Tests unitaires (Jest/Vitest) sur le service Gemini.
+- [ ] **Routing Professionnel**
+    - [x] Implémentation History API (Fait).
+    - [ ] Migration vers `react-router-dom` v6 pour une gestion native des routes imbriquées et des loaders.
+    - [ ] Protection des routes (`AuthGuard`) coté client.
+
+- [ ] **Backend First (Sécurité)**
+    - [ ] Déplacer la logique de validation des Quiz du Frontend vers le Backend (Node.js).
+    - [ ] Remplacer le stockage de Token dans `localStorage` par des **Cookies HttpOnly** (protection XSS).
+    - [ ] Hashage des mots de passe coté serveur (Bcrypt) obligatoire.
+
+- [ ] **Gestion des Fichiers**
+    - [ ] Remplacer le stockage d'images Base64 (lourd pour la BDD) par un système d'upload de fichiers.
+    - [ ] Intégration de `Multer` (Node.js) et stockage local ou S3.
+
+## 🟡 Priorité Moyenne : Performance & Scalabilité (Q3 2025)
+
+Préparer l'application pour supporter 2000+ élèves simultanés.
+
+- [ ] **Optimisation des Données**
+    - [ ] Implémenter la **Pagination** coté serveur pour les listes d'élèves et de résultats.
+    - [ ] Mettre en place `TanStack Query` (React Query) pour le cache et la gestion des états serveur.
+
+- [ ] **Temps Réel**
+    - [ ] Remplacer le "polling" (vérification toutes les 5s) par des **WebSockets** (Socket.io).
+    - [ ] Chat en direct et Notifications instantanées.
+
+## 🟢 Priorité Basse : Fonctionnalités & UX (Q4 2025)
+
+- [ ] **Offline First (PWA)**
+    - [ ] Rendre l'application installable sur mobile.
+    - [ ] Permettre le passage de quiz sans connexion internet (synchronisation au retour du réseau).
+
+- [ ] **Localisation**
+    - [ ] Traduction complète de l'interface en **Amazigh (Tifinagh)**.
+    - [ ] Support des dates hégiriennes.
+
+## 💡 Idées Communautaires (Backlog)
+
+*   *Ajout d'un rôle "Parent" pour le suivi des notes.*
+*   *Intégration de Jitsi Meet pour les classes virtuelles.*
+*   *Export des bulletins de notes au format PDF officiel.*
 
 ---
-**Comment contribuer ?**
-Ouvrez une [Issue] sur GitHub avec le tag `feature-request`. Si l'idée est validée, elle sera ajoutée à cette Roadmap.
+**Envie de contribuer ?**
+Choisissez une tâche, forkez le projet et proposez une Pull Request ! Utilisez le tag `hacktoberfest` si applicable.

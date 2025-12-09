@@ -1,63 +1,91 @@
 
-# 🏛️ Tinmel - LMS Open Source Marocain 🇲🇦 (MIT)
+# 🏛️ Tinmel - LMS Open Source Marocain 🇲🇦
 
-![Tinmel Banner](https://via.placeholder.com/1200x400/1e3a8a/ffffff?text=Tinmel+LMS+Open+Source)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
+![React](https://img.shields.io/badge/React-18-blue)
+![Vite](https://img.shields.io/badge/Vite-5.0-purple)
+![Gemini AI](https://img.shields.io/badge/AI-Google%20Gemini-orange)
+![Status](https://img.shields.io/badge/Status-Beta-yellow)
 
-> **Tinmel** (تينمل) est une plateforme de gestion de l'apprentissage (LMS) nouvelle génération, conçue pour les écoles marocaines et africaines. Elle intègre l'Intelligence Artificielle pour automatiser la création de contenu et la correction.
+> **Tinmel** (تينمل) est une plateforme de gestion de l'apprentissage (LMS) nouvelle génération, conçue pour les écoles. Elle intègre l'Intelligence Artificielle pour automatiser la création de contenu pédagogique et la correction.
 
 🌐 **Site du Projet :** [Découvrir le projet](https://sites.google.com/view/tinmel-project/home)
 
-## 📖 L'Histoire derrière le nom
-Le nom **"Tinmel"** puise son inspiration dans le berceau historique de la dynastie Almohade, situé dans le Haut Atlas marocain. Tout comme la **Mosquée de Tinmel** fut au XIIe siècle un centre de rassemblement spirituel et de savoir, cette plateforme aspire à devenir un pilier numérique pour l'éducation moderne, accessible à tous.
+## 📖 Pourquoi Tinmel ?
+Le nom **"Tinmel"** puise son inspiration dans le berceau historique de la dynastie Almohade. Tout comme la **Mosquée de Tinmel** fut un centre de savoir, cette plateforme aspire à devenir un pilier numérique souverain pour l'éducation moderne.
+
+Ce projet est une réponse "Proof of Concept" (PoC) pour démontrer qu'un LMS puissant, intégrant l'IA générative, peut être construit avec des technologies web modernes et légères.
 
 ## ✨ Fonctionnalités Clés
 
-*   🤖 **IA Intégrée (Gemini) :** Génération automatique de Quiz et Correction instantanée.
-*   🏫 **Multi-Établissements :** Architecture centralisée.
-*   👥 **Rôles Hiérarchisés :** Admin > Coordinateur > Professeur > Élève.
-*   📊 **Tableaux de Bord :** Statistiques détaillées et détection de décrochage scolaire.
-*   🌍 **Multilingue & RTL :** Français et Arabe.
-*   📱 **Moderne & Réactif :** Interface React 18.
+### 🧠 Intelligence Artificielle (Gemini 2.5)
+*   **Génération de Quiz :** Création automatique de QCM, Vrai/Faux et questions ouvertes à partir d'un simple sujet.
+*   **Correction Assistée :** Analyse sémantique des réponses courtes et des essais par l'IA.
 
-## 🚀 Installation Rapide
+### 🏫 Gestion Scolaire
+*   **Architecture Multi-Niveaux :**
+    *   🛡️ **Admin :** Gestion globale, facturation, déploiement.
+    *   👔 **Coordinateur :** Gestion des emplois du temps, des classes et du corps professoral.
+    *   🎓 **Professeur :** Création de cours, quiz, suivi des résultats.
+    *   🎒 **Élève :** Interface gamifiée (XP, Badges), passage de quiz, messagerie.
+
+### 🛡️ Sécurité & Confidentialité
+*   **Séparation des Portails :** Accès Admin (`/tinmelad`) isolé de l'accès public.
+*   **Détection de Décrochage :** Algorithme identifiant les élèves à risque (absentéisme + baisse de résultats).
+
+## 🛠️ Stack Technique
+
+*   **Frontend :** React 18, TypeScript, Tailwind CSS, Lucide Icons.
+*   **Build Tool :** Vite.
+*   **Backend (Hybride) :** 
+    *   *Mode Démo :* `LocalStorage` pour une persistance immédiate sans serveur.
+    *   *Mode Prod :* Node.js (Express) + SQLite (Migration en cours vers PostgreSQL).
+*   **AI :** Google Generative AI SDK (`@google/genai`).
+
+## 🚀 Installation (Développeur)
+
+### Prérequis
+*   Node.js (v18+)
+*   Une clé API Google Gemini (Gratuite sur [Google AI Studio](https://aistudio.google.com/))
+
+### Démarrage Rapide
 
 ```bash
-git clone https://github.com/VOTRE_USER/tinmel.git
+# 1. Cloner le dépôt
+git clone https://github.com/LahcenOub/tinmel.git
 cd tinmel
+
+# 2. Installer les dépendances
 npm install
+
+# 3. Configurer l'environnement
+# Créez un fichier .env à la racine et ajoutez :
+# REACT_APP_GEMINI_API_KEY=votre_cle_api
+
+# 4. Lancer (Frontend + Backend)
 npm run dev
 ```
-*Voir [INSTALL.md](INSTALL.md) pour le guide complet.*
 
-## 🗺️ Roadmap & Suggestions
-Vous voulez savoir ce qui arrive ou proposer une idée ?
-Consultez notre [Feuille de Route (ROADMAP.md)](./ROADMAP.md).
+Ouvrez **http://localhost:3000**.
+*   **Admin par défaut :** `admin` / `password123`
 
-Nous utilisons ce fichier pour centraliser les meilleures suggestions de la communauté.
+## 📸 Aperçus
+*(Ajoutez ici des captures d'écran de votre application : Dashboard Admin, Quiz Taker, etc.)*
 
-## 🇲🇦 Appel aux Développeurs Marocains
+## 🤝 Contribution & Hacktoberfest
 
-**Tinmel est la première brique d'un projet ambitieux : bâtir un LMS Open Source 100% Marocain.**
+Nous cherchons activement des contributeurs pour passer du prototype à la production !
 
-Nous lançons un appel à tous les développeurs du Royaume pour contribuer à la réussite de ce projet. L'éducation nationale mérite des outils souverains, performants et gratuits.
+**Domaines prioritaires :**
+1.  **Backend :** Sécurisation complète de l'API Node.js et JWT HttpOnly.
+2.  **Performance :** Implémentation de la pagination serveur et virtualisation des listes.
+3.  **Features :** Support de la langue Amazigh (Tifinagh).
 
-Votre expertise est requise pour transformer ce prototype en une solution robuste utilisée par des milliers d'élèves :
-*   **Backend :** Migration vers PostgreSQL et sécurisation API.
-*   **Frontend :** Optimisation UX et Accessibilité.
-*   **Langues :** Ajout du support Amazigh.
-*   **DevOps :** Dockerisation et déploiement facile.
+Consultez le [ROADMAP.md](./ROADMAP.md) pour voir les tâches disponibles.
 
-Ingénieurs Techno-pédagogiques, votre vision est essentielle pour valider les scénarios d'apprentissage !
+## 📄 Licence
 
-### Roadmap Simplifiée
-- [ ] Migration SQL complète.
-- [ ] Module Visioconférence.
-- [ ] Application Mobile.
-
-## 📄 Licence (MIT)
-
-Ce projet est distribué sous la licence **MIT**.
-Cela signifie que vous êtes libre d'utiliser, de copier, de modifier, de fusionner, de publier, de distribuer, de sous-licencier et/ou de vendre des copies du Logiciel.
+Distribué sous la licence **MIT**. Voir `LICENSE` pour plus d'informations.
 
 ---
 *Construit avec ❤️ au Maroc.*
