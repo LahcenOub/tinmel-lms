@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, UserRole } from './types';
 import { StorageService } from './services/storageService';
@@ -7,10 +8,10 @@ import ProfessorDashboard from './components/Dashboards/ProfessorDashboard';
 import StudentDashboard from './components/Dashboards/StudentDashboard';
 import ModeratorDashboard from './components/Dashboards/ModeratorDashboard';
 import CoordinatorDashboard from './components/Dashboards/CoordinatorDashboard';
-import { GraduationCap, ArrowLeft, Languages, Building2, AlertTriangle, Loader2, CheckCircle, Lock, Database, ShieldCheck } from 'lucide-react';
+import { GraduationCap, ArrowLeft, Languages, Building2, AlertTriangle, Loader2, CheckCircle, Lock, Database, ShieldCheck, Github, ExternalLink, Trash2, RefreshCcw, Server } from 'lucide-react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
-type ViewState = 'LANDING' | 'LOGIN_STUDENT' | 'LOGIN_STAFF' | 'DASHBOARD' | 'INSTALL';
+type ViewState = 'LANDING' | 'LOGIN_STUDENT' | 'LOGIN_STAFF' | 'DASHBOARD' | 'INSTALL' | 'ADMIN_LANDING';
 
 // Background Component
 const CalligraphyBackground = () => {
@@ -166,55 +167,67 @@ const AppContent: React.FC = () => {
   const [isInstalled, setIsInstalled] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Check Installation Status
+  // ROUTING LOGIC: Determine if we are in Admin Portal
+  const isAdminPath = window.location.pathname.startsWith('/tinmelad') || window.location.pathname.startsWith('/admin');
+
+  // 1. Check Installation Status & Handle Special URLs
   useEffect(() => {
-      const check = async () => {
+      const init = async () => {
           setIsLoading(true);
+          
+          // Check installation (local or API)
           const installed = await ApiService.checkInstallStatus();
           setIsInstalled(installed);
-          if (!installed) {
-              setView('INSTALL');
+          
+          // Check URL Params
+          const params = new URLSearchParams(window.location.search);
+          const qId = params.get('quizId'); // ?quizId=123
+          const setup = params.get('setup'); // ?setup=true
+
+          // ROUTING LOGIC
+          if (isAdminPath) {
+              // Admin Portal Logic
+              if (!installed || setup === 'true') {
+                  setView('INSTALL');
+              } else {
+                  setView('ADMIN_LANDING');
+              }
           } else {
-              // If installed and not already on a specific view, go to landing
-              setView(v => v === 'INSTALL' ? 'LANDING' : v);
+              // Public Portal Logic
+              if (!installed && !sessionStorage.getItem('tinmel_setup_deferred')) {
+                  // If not installed, users shouldn't really see anything, but let's show landing essentially empty or redirect
+                  // For now, allow landing but without login ability or redirect to admin
+                  console.warn("App not installed, but on public route.");
+              }
+              
+              const sessionUser = StorageService.getSession();
+              if (sessionUser) {
+                  setUser(sessionUser);
+                  setView('DASHBOARD');
+              } else if (qId) {
+                  setAutoLaunchQuizId(qId);
+                  setView('LOGIN_STUDENT');
+              } else {
+                  setView('LANDING');
+              }
           }
+
           setIsLoading(false);
       };
-      check();
+      
+      init();
   }, []);
 
-  // 2. Auto-Restore Session
-  useEffect(() => {
-      const sessionUser = StorageService.getSession();
-      if (sessionUser) {
-          setUser(sessionUser);
-          setView('DASHBOARD');
-      }
-  }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const qId = params.get('quizId');
-    if (qId) {
-      setAutoLaunchQuizId(qId);
-      const currentUser = StorageService.getSession();
-      if (!currentUser && isInstalled) setView('LOGIN_STUDENT'); 
-    }
-  }, [isInstalled]);
-
-  const handleLogin = async (e: React.FormEvent, targetRole: 'STUDENT' | 'STAFF') => {
+  const handleLogin = async (e: React.FormEvent, targetRole: 'STUDENT' | 'STAFF' | 'ADMIN') => {
     e.preventDefault();
     setError('');
     
-    // TRY API LOGIN (Backend)
     const foundUser = await ApiService.login(username, password);
-    
-    // Fallback to local storage if API fails (pure local mode or legacy)
     const localUser = !foundUser ? StorageService.login(username, password) : null;
-    
     const finalUser = foundUser || localUser;
 
     if (finalUser) {
+        // Role Checks
         if (targetRole === 'STUDENT' && finalUser.role !== UserRole.STUDENT) {
             setError(t('invalidCreds'));
             return;
@@ -223,12 +236,14 @@ const AppContent: React.FC = () => {
              setError(t('accessDenied'));
              return;
         }
+        // Strict Admin Portal Check
+        if (isAdminPath && finalUser.role !== UserRole.ADMIN) {
+             setError("Accès réservé aux Administrateurs.");
+             return;
+        }
 
-      // Sync API user to local session for persistence
       StorageService.saveSession(finalUser);
-      // Also cache user in localStorage for offline capabilities in dashboards
       StorageService.saveUser(finalUser); 
-
       setUser(finalUser);
       setView('DASHBOARD');
     } else {
@@ -241,12 +256,32 @@ const AppContent: React.FC = () => {
     setUser(null);
     setUsername('');
     setPassword('');
-    setView('LANDING');
+    // Stay in the same portal
+    setView(isAdminPath ? 'ADMIN_LANDING' : 'LANDING');
     setError('');
   };
 
   const toggleLanguage = () => {
       setLanguage(language === 'fr' ? 'ar' : 'fr');
+  };
+
+  // --- SECURITY UPDATE: PROTECTED HARD RESET ---
+  const handleHardReset = () => {
+      // 1. First warning
+      if (!confirm("⚠️ ZONE DE DANGER ⚠️\n\nVous êtes sur le point d'effacer TOUTES les données de l'application.\n\nCette action est irréversible. Voulez-vous continuer ?")) {
+          return;
+      }
+
+      // 2. Security Check 
+      const inputKey = prompt("🔒 CONFIRMATION REQUISE\n\nEntrez 'RESET' pour confirmer l'effacement total.");
+
+      if (inputKey === 'RESET') {
+          localStorage.clear();
+          sessionStorage.clear();
+          window.location.reload(); // Will trigger install view since data is gone
+      } else {
+          alert("Annulé.");
+      }
   };
 
   const renderDashboard = () => {
@@ -271,15 +306,93 @@ const AppContent: React.FC = () => {
       return renderDashboard();
   }
 
-  // Show loading spinner while checking install status
+  // FORCE LOADING SCREEN until installation check is done
   if (isLoading) {
       return (
           <div className="min-h-screen bg-blue-900 flex items-center justify-center">
-              <Loader2 className="w-10 h-10 text-white animate-spin" />
+              <div className="flex flex-col items-center gap-4">
+                  <Loader2 className="w-12 h-12 text-white animate-spin" />
+                  <p className="text-blue-200 text-sm font-medium">Chargement...</p>
+              </div>
           </div>
       );
   }
 
+  // --- ADMIN PORTAL VIEW (/tinmelad) ---
+  if (isAdminPath) {
+      return (
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center relative overflow-hidden font-sans" dir={dir}>
+             {/* Admin specific background or simplified style */}
+             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+             
+             {view === 'INSTALL' && (
+                 <InstallationWizard onInstalled={() => { setIsInstalled(true); setView('ADMIN_LANDING'); }} />
+             )}
+
+             {view === 'ADMIN_LANDING' && (
+                 <div className="z-10 w-full max-w-md px-4 animate-fade-in">
+                     <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
+                         <div className="bg-slate-800 p-8 text-center border-b border-slate-700">
+                             <Server className="w-12 h-12 text-blue-400 mx-auto mb-4"/>
+                             <h1 className="text-2xl font-bold text-white mb-1">Administration Centrale</h1>
+                             <p className="text-slate-400 text-sm">Accès sécurisé réservé</p>
+                         </div>
+                         <div className="p-8">
+                            <form onSubmit={(e) => handleLogin(e, 'ADMIN')} className="space-y-5">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">{t('username')}</label>
+                                    <input
+                                        type="text"
+                                        className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500 transition shadow-sm"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">{t('password')}</label>
+                                    <input
+                                        type="password"
+                                        className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500 transition shadow-sm"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                    />
+                                </div>
+                                
+                                {error && (
+                                    <div className="p-3 bg-red-50 text-red-600 text-sm rounded border border-red-200 flex items-center gap-2">
+                                        <AlertTriangle className="w-4 h-4"/> {error}
+                                    </div>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    className="w-full py-3 px-4 bg-slate-800 text-white font-bold rounded hover:bg-slate-900 transition shadow-lg"
+                                >
+                                    {t('login')}
+                                </button>
+                            </form>
+                            
+                            <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col gap-2">
+                                 <button 
+                                    onClick={handleHardReset}
+                                    className="text-xs text-red-500 hover:text-red-700 flex items-center justify-center gap-1 opacity-60 hover:opacity-100 transition"
+                                 >
+                                     <Trash2 className="w-3 h-3"/> Réinitialisation Totale (Factory Reset)
+                                 </button>
+                                 <a href="/" className="text-center text-xs text-blue-500 hover:underline mt-2">
+                                     &larr; Retour au portail public
+                                 </a>
+                            </div>
+                         </div>
+                     </div>
+                 </div>
+             )}
+        </div>
+      );
+  }
+
+  // --- PUBLIC PORTAL VIEW (/) ---
   return (
     <div className="min-h-screen bg-blue-900 flex items-center justify-center relative overflow-hidden" dir={dir}>
         
@@ -294,47 +407,62 @@ const AppContent: React.FC = () => {
             <span className="font-bold uppercase">{language}</span>
         </button>
 
-        {/* INSTALL WIZARD */}
-        {view === 'INSTALL' && (
-            <InstallationWizard onInstalled={() => { setIsInstalled(true); setView('LANDING'); }} />
-        )}
-
-        {/* LANDING PAGE - STUDENT FOCUSED */}
+        {/* PUBLIC LANDING PAGE */}
         {view === 'LANDING' && (
-            <div className="z-10 w-full max-w-4xl px-4 animate-fade-in flex flex-col items-center">
-                 <div className="mb-12 text-center relative">
+            <div className="z-10 w-full max-w-4xl px-4 animate-fade-in flex flex-col items-center justify-between min-h-[80vh]">
+                 <div className="text-center relative mt-10">
                      <div className="absolute -inset-10 bg-blue-600/30 blur-3xl -z-10 rounded-full"></div>
                      <h1 className="text-6xl md:text-8xl font-black text-white font-logo tracking-tight mb-4 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
                         {t('appName')}
                      </h1>
-                     <p className="text-blue-100 text-2xl font-light drop-shadow-md bg-blue-900/30 px-4 py-1 rounded-full backdrop-blur-sm inline-block border border-blue-400/30">
+                     <p className="text-blue-100 text-2xl font-light drop-shadow-md bg-blue-900/30 px-6 py-2 rounded-full backdrop-blur-sm inline-block border border-blue-400/30">
                          {t('slogan')}
                      </p>
                  </div>
 
-                 {/* MAIN ACTION: STUDENT LOGIN */}
-                 <button 
-                    onClick={() => { setView('LOGIN_STUDENT'); setError(''); }}
-                    className="bg-white/10 backdrop-blur-md hover:bg-white/20 border border-white/20 p-8 rounded-2xl transition-all transform hover:-translate-y-2 group shadow-2xl hover:shadow-blue-500/20 flex flex-col items-center text-center w-full max-w-md"
-                 >
-                     <div className="bg-blue-500 rounded-full w-24 h-24 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg group-hover:bg-blue-400 ring-4 ring-blue-500/30">
-                         <GraduationCap className="w-12 h-12 text-white" />
-                     </div>
-                     <h2 className="text-3xl font-bold text-white mb-2 font-logo">{t('studentSpace')}</h2>
-                     <p className="text-blue-100 text-sm font-light leading-relaxed">{t('studentDesc')}</p>
-                 </button>
-
-                 {/* DISCREET ADMIN LINK - FIXED AT BOTTOM */}
-                 <div className="fixed bottom-6 left-0 right-0 text-center">
+                 {/* MAIN ACTION: STUDENT / PUBLIC LOGIN */}
+                 <div className="w-full max-w-md space-y-4 my-12">
                      <button 
-                        onClick={() => { setView('LOGIN_STAFF'); setError(''); }}
-                        className="text-white/40 hover:text-white/90 transition-colors text-sm flex items-center gap-2 mx-auto px-4 py-2 rounded hover:bg-white/5"
+                        onClick={() => { setView('LOGIN_STUDENT'); setError(''); }}
+                        className="w-full bg-white/10 backdrop-blur-md hover:bg-white/20 border border-white/20 p-8 rounded-2xl transition-all transform hover:-translate-y-2 group shadow-2xl hover:shadow-blue-500/20 flex flex-col items-center text-center"
                      >
-                         <ShieldCheck className="w-4 h-4" />
-                         <span className="font-medium tracking-wide">
-                             Administration & Enseignants
-                         </span>
+                         <div className="bg-blue-500 rounded-full w-20 h-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg group-hover:bg-blue-400 ring-4 ring-blue-500/30">
+                             <GraduationCap className="w-10 h-10 text-white" />
+                         </div>
+                         <h2 className="text-2xl font-bold text-white mb-1 font-logo">{t('studentSpace')}</h2>
+                         <p className="text-blue-200 text-sm font-light">{t('studentDesc')}</p>
                      </button>
+                     
+                     <div className="text-center">
+                        <p className="text-blue-300 text-xs mb-2 uppercase tracking-widest opacity-70">Licence Libre & Protégée</p>
+                        <a 
+                            href="https://github.com/LahcenOub/tinmel" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 text-white/50 text-xs hover:text-white transition-colors cursor-pointer"
+                        >
+                             <Github className="w-4 h-4" />
+                             <span>Open Source Project (MIT License)</span>
+                             <ExternalLink className="w-3 h-3 opacity-50" />
+                        </a>
+                     </div>
+                 </div>
+
+                 {/* DISCREET FOOTER FOR STAFF ACCESS (NON-ADMIN) */}
+                 <div className="w-full border-t border-white/10 pt-6 flex flex-col items-center text-white/40 text-xs gap-4">
+                     <div className="flex gap-6">
+                         <button 
+                            onClick={() => { setView('LOGIN_STAFF'); setError(''); }}
+                            className="hover:text-white transition-colors flex items-center gap-2"
+                         >
+                             <ShieldCheck className="w-3 h-3" />
+                             Espace Professeur / Coordinateur
+                         </button>
+                     </div>
+                     <p className="flex items-center gap-2">
+                         © {new Date().getFullYear()} Tinmel. 
+                         <span className="text-blue-300 font-bold">🇲🇦 La 1ère brique d'un LMS Open Source Marocain.</span>
+                     </p>
                  </div>
             </div>
         )}
@@ -355,6 +483,7 @@ const AppContent: React.FC = () => {
                          <h2 className="text-2xl font-bold font-logo tracking-wide">
                              {view === 'LOGIN_STUDENT' ? t('loginStudent') : t('loginStaff')}
                          </h2>
+                         {view === 'LOGIN_STAFF' && <p className="text-gray-300 text-xs mt-2 uppercase tracking-widest">{t('staffSpace')}</p>}
                     </div>
 
                     <div className="p-8">
