@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Quiz, Question, QuestionType, MatchingPair } from '../../types';
-import { Plus, Trash2, Save, Wand2, RefreshCcw, Lock, Clock, Calendar, Image as ImageIcon, CheckSquare, Type, Split, AlignLeft, List, MousePointerClick, MessageSquare } from 'lucide-react';
+import { Plus, Trash2, Save, Wand2, RefreshCcw, Lock, Clock, Calendar, Image as ImageIcon, CheckSquare, Type, Split, AlignLeft, List, MousePointerClick, MessageSquare, PenTool } from 'lucide-react';
 import { GeminiService } from '../../services/geminiService';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -110,6 +110,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
           case QuestionType.SHORT_ANSWER: return <Type className="w-5 h-5"/>;
           case QuestionType.ESSAY: return <AlignLeft className="w-5 h-5"/>;
           case QuestionType.MATCHING: return <Split className="w-5 h-5"/>;
+          case QuestionType.FILL_IN_THE_BLANK: return <PenTool className="w-5 h-5"/>;
           default: return <Plus className="w-5 h-5"/>;
       }
   };
@@ -120,6 +121,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
     { type: QuestionType.BOOLEAN, label: "Vrai / Faux", desc: "Réponse binaire simple", icon: CheckSquare, color: "bg-green-50 text-green-600 border-green-200" },
     { type: QuestionType.SHORT_ANSWER, label: "Réponse Courte", desc: "Un mot ou une phrase exacte", icon: Type, color: "bg-orange-50 text-orange-600 border-orange-200" },
     { type: QuestionType.MATCHING, label: "Appariement", desc: "Relier des éléments entre eux", icon: Split, color: "bg-pink-50 text-pink-600 border-pink-200" },
+    { type: QuestionType.FILL_IN_THE_BLANK, label: "Texte à trous", desc: "Compléter les phrases", icon: PenTool, color: "bg-teal-50 text-teal-600 border-teal-200" },
     { type: QuestionType.ESSAY, label: "Rédaction (IA)", desc: "Analyse sémantique par IA", icon: MessageSquare, color: "bg-indigo-50 text-indigo-600 border-indigo-200" }
   ];
 
@@ -426,6 +428,17 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
                     </div>
                 </div>
             )}
+            
+            {/* Fill in the blank */}
+            {q.type === QuestionType.FILL_IN_THE_BLANK && (
+                <div className="ms-11 mt-2 p-4 bg-teal-50 rounded-lg border border-teal-100 text-sm text-teal-800 flex items-start gap-2">
+                     <div className="flex-1">
+                         <p className="font-bold mb-1 flex items-center gap-2"><PenTool className="w-4 h-4"/> Mode d'emploi</p>
+                         <p>Écrivez votre phrase et mettez les réponses entre crochets.</p>
+                         <p className="mt-1 font-mono bg-white p-1 rounded border border-teal-200 inline-block">La capitale de la [France] est [Paris].</p>
+                     </div>
+                </div>
+            )}
 
             {/* Matching */}
             {q.type === QuestionType.MATCHING && (
@@ -488,7 +501,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
           <h3 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wider flex items-center gap-2">
               <Plus className="w-4 h-4"/> Ajouter une question
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {questionTypes.map((item) => (
                   <button 
                       key={item.type}

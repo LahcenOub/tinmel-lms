@@ -49,6 +49,7 @@ export enum QuestionType {
   ESSAY = 'ESSAY', 
   MATCHING = 'MATCHING', 
   SHORT_ANSWER = 'SHORT_ANSWER', 
+  FILL_IN_THE_BLANK = 'FILL_IN_THE_BLANK',
 }
 
 export interface MatchingPair {
@@ -139,4 +140,28 @@ export interface PartnerRequest {
     phone: string;
     date: string;
     status: 'PENDING' | 'CONTACTED';
+}
+
+// Whiteboard Types
+export interface Point {
+    x: number;
+    y: number;
+}
+
+export interface Stroke {
+    points: Point[];
+    color: string;
+    size: number;
+    tool: 'pen' | 'eraser';
+}
+
+export interface WhiteboardSession {
+    id: string;
+    hostId: string;
+    hostName: string;
+    title: string;
+    accessKey: string;
+    isActive: boolean;
+    createdAt: string;
+    strokes: Stroke[];
 }

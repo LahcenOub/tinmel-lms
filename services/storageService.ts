@@ -1,4 +1,5 @@
-import { User, Quiz, QuizResult, UserRole, Message, Lesson, Announcement, SchoolStructure, PartnerRequest, QuestionType, LessonType } from '../types';
+
+import { User, Quiz, QuizResult, UserRole, Message, Lesson, Announcement, SchoolStructure, PartnerRequest, QuestionType, LessonType, WhiteboardSession, Stroke } from '../types';
 
 const KEYS = {
   USERS: 'quizmaster_users',
@@ -10,6 +11,7 @@ const KEYS = {
   SCHOOL_STRUCTURES: 'quizmaster_structures',
   CURRENT_USER: 'quizmaster_current_user',
   PARTNER_REQUESTS: 'quizmaster_partner_requests',
+  WHITEBOARDS: 'quizmaster_whiteboards',
 };
 
 // Initialize Storage
@@ -38,6 +40,9 @@ const init = () => {
   }
   if (!localStorage.getItem(KEYS.PARTNER_REQUESTS)) {
     localStorage.setItem(KEYS.PARTNER_REQUESTS, JSON.stringify([]));
+  }
+  if (!localStorage.getItem(KEYS.WHITEBOARDS)) {
+    localStorage.setItem(KEYS.WHITEBOARDS, JSON.stringify([]));
   }
 };
 
@@ -589,5 +594,34 @@ export const StorageService = {
       });
       
       return data;
+  },
+
+  // --- WHITEBOARD MANAGEMENT ---
+  getWhiteboards: (): WhiteboardSession[] => JSON.parse(localStorage.getItem(KEYS.WHITEBOARDS) || '[]'),
+  
+  saveWhiteboard: (wb: WhiteboardSession) => {
+      const list = StorageService.getWhiteboards();
+      const idx = list.findIndex(w => w.id === wb.id);
+      if (idx >= 0) list[idx] = wb;
+      else list.push(wb);
+      localStorage.setItem(KEYS.WHITEBOARDS, JSON.stringify(list));
+  },
+
+  getWhiteboardByKey: (key: string): WhiteboardSession | undefined => {
+      return StorageService.getWhiteboards().find(w => w.accessKey === key && w.isActive);
+  },
+  
+  getWhiteboardById: (id: string): WhiteboardSession | undefined => {
+      return StorageService.getWhiteboards().find(w => w.id === id);
+  },
+
+  // Simulating real-time stroke sync (append only for performance)
+  addStrokeToWhiteboard: (wbId: string, stroke: Stroke) => {
+      const list = StorageService.getWhiteboards();
+      const idx = list.findIndex(w => w.id === wbId);
+      if (idx >= 0) {
+          list[idx].strokes.push(stroke);
+          localStorage.setItem(KEYS.WHITEBOARDS, JSON.stringify(list));
+      }
   }
 };

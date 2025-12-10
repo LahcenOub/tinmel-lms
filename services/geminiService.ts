@@ -41,7 +41,8 @@ export const GeminiService = {
                         QuestionType.BOOLEAN, 
                         QuestionType.SHORT_ANSWER,
                         QuestionType.MATCHING,
-                        QuestionType.ESSAY
+                        QuestionType.ESSAY,
+                        QuestionType.FILL_IN_THE_BLANK
                     ] 
                 },
                 points: { type: Type.NUMBER },
@@ -76,11 +77,15 @@ export const GeminiService = {
       3. Réponse Courte (SHORT_ANSWER) : Fournis la réponse attendue dans 'correctAnswer'.
       4. Appariement (MATCHING) : Fournis 4 paires d'éléments liés dans 'matchingPairs'.
       5. Question Ouverte (ESSAY) : Une question de réflexion qui demande une rédaction. Laisser 'correctAnswer' vide ou fournir des mots-clés.
+      6. Texte à trous (FILL_IN_THE_BLANK) : Une phrase où les mots à deviner sont entre crochets [ ]. Exemple: "La capitale de la [France] est [Paris]".
       
       IMPORTANT POUR LE TYPE 'MATCHING':
       - Ne remplis PAS 'options'.
       - Ne remplis PAS 'correctAnswer'.
       - Remplis UNIQUEMENT le tableau 'matchingPairs' avec 4 objets {left: string, right: string}.
+
+      IMPORTANT POUR LE TYPE 'FILL_IN_THE_BLANK':
+      - Mets les réponses directement dans le texte entre [crochets].
       
       Répartis les types de manière équilibrée.
       Assure-toi que le JSON est valide et respecte le schéma.

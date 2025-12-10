@@ -106,6 +106,19 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
             }
             if (allCorrect) calculatedScore += q.points;
          }
+      } else if (q.type === QuestionType.FILL_IN_THE_BLANK) {
+          const matches = q.text.match(/\[(.*?)\]/g) || [];
+          const correctValues = matches.map(m => m.replace(/[\[\]]/g, '').trim().toLowerCase());
+          const userValues = (Array.isArray(userAns) ? userAns : []).map((v: string) => v.trim().toLowerCase());
+          
+          let correctCount = 0;
+          correctValues.forEach((val, idx) => {
+              if (userValues[idx] === val) correctCount++;
+          });
+          
+          if (correctValues.length > 0) {
+              calculatedScore += (correctCount / correctValues.length) * q.points;
+          }
       } else if (q.type === QuestionType.ESSAY) {
           try {
               const grading = await GeminiService.gradeEssay(q.text, userAns || '');
@@ -169,7 +182,7 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
       </div>
 
       <div className="mb-8">
-        <h3 className="text-lg font-medium mb-4">{q.text}</h3>
+        {q.type !== QuestionType.FILL_IN_THE_BLANK && <h3 className="text-lg font-medium mb-4">{q.text}</h3>}
 
         {q.type === QuestionType.IMAGE_MCQ && q.imageUrl && (
             <div className="mb-6">
@@ -214,6 +227,35 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
                 value={answers[q.id] || ''}
                 onChange={(e) => handleAnswer(q.id, e.target.value)}
             />
+        )}
+        
+        {q.type === QuestionType.FILL_IN_THE_BLANK && (
+            <div className="leading-loose text-lg font-medium">
+                {(() => {
+                    let blankIndex = 0;
+                    return q.text.split(/(\[.*?\])/).map((part, idx) => {
+                        if (part.startsWith('[') && part.endsWith(']')) {
+                            const currentBlankIndex = blankIndex++;
+                            const val = (answers[q.id] as string[])?.[currentBlankIndex] || '';
+                            return (
+                                <input
+                                    key={idx}
+                                    className="border-b-2 border-blue-500 mx-1 px-1 text-center w-32 focus:outline-none bg-blue-50 text-blue-800"
+                                    value={val}
+                                    onChange={(e) => {
+                                        const newAns = [...(answers[q.id] || [])];
+                                        newAns[currentBlankIndex] = e.target.value;
+                                        handleAnswer(q.id, newAns);
+                                    }}
+                                    placeholder="..."
+                                    autoComplete="off"
+                                />
+                            );
+                        }
+                        return <span key={idx}>{part}</span>;
+                    });
+                })()}
+            </div>
         )}
 
         {q.type === QuestionType.ESSAY && (

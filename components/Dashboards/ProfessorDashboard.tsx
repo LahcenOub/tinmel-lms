@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { User, UserRole, Quiz, QuizResult, Message, Lesson, LessonType, Announcement } from '../../types';
+import { User, UserRole, Quiz, QuizResult, Message, Lesson, LessonType, Announcement, WhiteboardSession } from '../../types';
 import { StorageService } from '../../services/storageService';
 import QuizBuilder from '../Quiz/QuizBuilder';
-import { LogOut, Users, FileText, BarChart, Download, Link as LinkIcon, Lock, Globe, EyeOff, Clock, MessageCircle, Send, BookOpen, Video, File, Trash, UserCircle, Save, Bell, X, Megaphone, Filter, PlusCircle, AlertTriangle, Coffee, Table } from 'lucide-react';
+import WhiteboardRoom from '../Whiteboard/WhiteboardRoom';
+import { LogOut, Users, FileText, BarChart, Download, Link as LinkIcon, Lock, Globe, EyeOff, Clock, MessageCircle, Send, BookOpen, Video, File, Trash, UserCircle, Save, Bell, X, Megaphone, Filter, PlusCircle, AlertTriangle, Coffee, Table, PenTool, ExternalLink } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -447,6 +448,86 @@ const MessagesView: React.FC<{ user: User }> = ({ user }) => {
     );
 };
 
+// --- WHITEBOARD VIEW ---
+
+const WhiteboardView: React.FC<{ user: User }> = ({ user }) => {
+    const { t } = useLanguage();
+    const [sessions, setSessions] = useState<WhiteboardSession[]>([]);
+    const [newTitle, setNewTitle] = useState('');
+    const [activeSession, setActiveSession] = useState<string | null>(null);
+
+    useEffect(() => {
+        // Filter my whiteboards
+        const all = StorageService.getWhiteboards();
+        setSessions(all.filter(w => w.hostId === user.id));
+    }, [user.id]);
+
+    const handleCreateSession = () => {
+        if (!newTitle.trim()) return;
+        
+        // Simple random key 6 chars
+        const key = Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        const newSession: WhiteboardSession = {
+            id: `wb-${Date.now()}`,
+            hostId: user.id,
+            hostName: user.name,
+            title: newTitle,
+            accessKey: key,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            strokes: []
+        };
+        
+        StorageService.saveWhiteboard(newSession);
+        setActiveSession(newSession.id);
+        setNewTitle('');
+    };
+
+    if (activeSession) {
+        return <WhiteboardRoom user={user} sessionId={activeSession} onExit={() => { setActiveSession(null); setSessions(StorageService.getWhiteboards().filter(w => w.hostId === user.id)); }} />;
+    }
+
+    return (
+        <div className="animate-fade-in">
+             <div className="bg-white p-6 rounded-lg shadow mb-6">
+                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><PenTool className="w-6 h-6"/> {t('createRoom')}</h2>
+                 <div className="flex gap-4">
+                     <input 
+                        className="flex-1 border rounded p-2" 
+                        placeholder={t('roomTitle')}
+                        value={newTitle}
+                        onChange={e => setNewTitle(e.target.value)}
+                     />
+                     <button onClick={handleCreateSession} className="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700 font-bold">
+                         {t('start')}
+                     </button>
+                 </div>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                 {sessions.map(s => (
+                     <div key={s.id} className="bg-white p-4 rounded-lg shadow border hover:shadow-md transition">
+                         <div className="flex justify-between items-start mb-2">
+                             <h3 className="font-bold text-lg">{s.title}</h3>
+                             {s.isActive ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded animate-pulse">LIVE</span> : <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded">Closed</span>}
+                         </div>
+                         <div className="bg-gray-50 p-2 rounded mb-4 font-mono text-center text-lg tracking-widest border border-dashed border-gray-300 select-all">
+                             {s.accessKey}
+                         </div>
+                         <div className="flex gap-2">
+                             <button onClick={() => setActiveSession(s.id)} className="flex-1 bg-blue-50 text-blue-600 py-2 rounded hover:bg-blue-100 font-medium">{t('enter')}</button>
+                             <button onClick={() => { StorageService.saveWhiteboard({...s, isActive: !s.isActive}); setSessions(prev => prev.map(p => p.id === s.id ? {...s, isActive: !s.isActive} : p)); }} className="text-xs text-gray-500 px-2 underline">
+                                 {s.isActive ? t('close') : t('reopen')}
+                             </button>
+                         </div>
+                     </div>
+                 ))}
+             </div>
+        </div>
+    );
+};
+
 // --- BUILDER WRAPPERS ---
 
 const QuizBuilderWrapper: React.FC<{ user: User }> = ({ user }) => {
@@ -582,6 +663,7 @@ const ProfessorDashboard: React.FC<Props> = ({ user: initialUser, onLogout }) =>
                    { id: 'students', icon: Users, label: t('myStudents') },
                    { id: 'results', icon: BarChart, label: t('results') },
                    { id: 'messages', icon: MessageCircle, label: t('messages'), badge: unreadMsgCount },
+                   { id: 'whiteboard', icon: PenTool, label: t('whiteboard') },
                    { id: 'staff-room', icon: Coffee, label: t('staffRoom'), badge: unreadStaffCount },
                    { id: 'profile', icon: UserCircle, label: t('profile') }
                ].map(tab => (
@@ -607,6 +689,7 @@ const ProfessorDashboard: React.FC<Props> = ({ user: initialUser, onLogout }) =>
                <Route path="results" element={<ResultsView user={currentUser} />} />
                
                <Route path="messages" element={<MessagesView user={currentUser} />} />
+               <Route path="whiteboard" element={<WhiteboardView user={currentUser} />} />
                <Route path="staff-room" element={<StaffRoomView user={currentUser} />} />
                
                <Route path="profile" element={<ProfileView user={currentUser} onUpdate={setCurrentUser} />} />

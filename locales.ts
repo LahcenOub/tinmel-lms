@@ -31,6 +31,7 @@ export const translations = {
     upload: "Uploader",
     download: "Télécharger",
     close: "Fermer",
+    reopen: "Réouvrir",
     search: "Rechercher...",
     filterBySchool: "Filtrer par école",
     filterByCity: "Filtrer par ville",
@@ -260,6 +261,16 @@ export const translations = {
     avgScore: "Moyenne",
     bestScore: "Meilleur Score",
     noData: "Pas de données",
+    whiteboard: "Tableau Blanc",
+    createRoom: "Créer une salle",
+    roomTitle: "Titre du cours...",
+    roomKey: "Clé d'accès",
+    joinWhiteboard: "Rejoindre un cours en direct",
+    enterWbKey: "Entrez la clé à 6 caractères fournie par votre professeur.",
+    sessionClosed: "La session a été fermée par l'hôte.",
+    confirmClear: "Voulez-vous vraiment tout effacer ?",
+    enter: "Entrer",
+    clear: "Effacer tout",
     
     // Quiz Builder
     newQuiz: "Créer un Nouveau Quiz",
@@ -279,8 +290,8 @@ export const translations = {
     addQuestion: "Ajouter",
     questionLabel: "Question...",
     points: "Pts",
-    option: "Option",
-    addOption: "+ Option",
+    option: "خيار",
+    addOption: "خيار+",
     true: "Vrai",
     false: "Faux",
     expectedAnswer: "Réponse",
@@ -340,6 +351,7 @@ export const translations = {
     [QuestionType.ESSAY]: "Ouverte",
     [QuestionType.MATCHING]: "Appariement",
     [QuestionType.SHORT_ANSWER]: "Réponse Courte",
+    [QuestionType.FILL_IN_THE_BLANK]: "Texte à trous",
   },
   ar: {
     // Installation
@@ -370,6 +382,7 @@ export const translations = {
     upload: "رفع",
     download: "تحميل",
     close: "إغلاق",
+    reopen: "إعادة فتح",
     search: "بحث...",
     filterBySchool: "تصفية حسب المدرسة",
     filterByCity: "تصفية حسب المدينة",
@@ -599,6 +612,16 @@ export const translations = {
     avgScore: "المعدل",
     bestScore: "أعلى نقطة",
     noData: "لا توجد بيانات",
+    whiteboard: "سبورة تفاعلية",
+    createRoom: "إنشاء غرفة",
+    roomTitle: "عنوان الدرس...",
+    roomKey: "رمز الدخول",
+    joinWhiteboard: "الانضمام إلى درس مباشر",
+    enterWbKey: "أدخل الرمز المكون من 6 أحرف الذي قدمه الأستاذ.",
+    sessionClosed: "تم إغلاق الجلسة من قبل المضيف.",
+    confirmClear: "هل أنت متأكد من مسح كل شيء؟",
+    enter: "دخول",
+    clear: "مسح الكل",
     
     // Quiz Builder
     newQuiz: "جديد",
@@ -679,5 +702,6 @@ export const translations = {
     [QuestionType.ESSAY]: "مفتوح",
     [QuestionType.MATCHING]: "ربط",
     [QuestionType.SHORT_ANSWER]: "قصير",
+    [QuestionType.FILL_IN_THE_BLANK]: "نص به فراغات",
   }
 };

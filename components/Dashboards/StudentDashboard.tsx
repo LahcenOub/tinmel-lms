@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { User, Quiz, UserRole, Message, Lesson, LessonType } from '../../types';
 import { StorageService } from '../../services/storageService';
 import QuizTaker from '../Quiz/QuizTaker';
-import { LogOut, CheckCircle, Play, Lock, Clock, Calendar, MessageCircle, Send, BookOpen, Video, File, ExternalLink, User as UserIcon, Award, Star, Zap } from 'lucide-react';
+import WhiteboardRoom from '../Whiteboard/WhiteboardRoom';
+import { LogOut, CheckCircle, Play, Lock, Clock, Calendar, MessageCircle, Send, BookOpen, Video, File, ExternalLink, User as UserIcon, Award, Star, Zap, PenTool } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 interface Props {
@@ -16,7 +17,7 @@ const StudentDashboard: React.FC<Props> = ({ user: initialUser, onLogout, autoLa
   const { t, dir } = useLanguage();
   // Keep user state in sync for Gamification updates
   const [user, setUser] = useState<User>(initialUser);
-  const [activeTab, setActiveTab] = useState<'quizzes' | 'lessons' | 'messages'>('quizzes');
+  const [activeTab, setActiveTab] = useState<'quizzes' | 'lessons' | 'messages' | 'whiteboard'>('quizzes');
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
   const [selectedQuizForAuth, setSelectedQuizForAuth] = useState<Quiz | null>(null);
   const [accessCodeInput, setAccessCodeInput] = useState('');
@@ -27,6 +28,10 @@ const StudentDashboard: React.FC<Props> = ({ user: initialUser, onLogout, autoLa
   const [selectedProfId, setSelectedProfId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  
+  // Whiteboard
+  const [wbKey, setWbKey] = useState('');
+  const [activeWhiteboard, setActiveWhiteboard] = useState<string | null>(null);
 
   // Refresh user data (XP/Badges) periodically & Update Last Login
   useEffect(() => {
@@ -111,6 +116,15 @@ const StudentDashboard: React.FC<Props> = ({ user: initialUser, onLogout, autoLa
     setMessages([...messages, msg]);
     setNewMessage('');
   };
+  
+  const joinWhiteboard = () => {
+      const wb = StorageService.getWhiteboardByKey(wbKey.trim().toUpperCase());
+      if (wb) {
+          setActiveWhiteboard(wb.accessKey);
+      } else {
+          alert(t('codeIncorrect'));
+      }
+  };
 
   // Quiz Availability Helpers
   const getAvailabilityStatus = (quiz: Quiz) => {
@@ -162,6 +176,10 @@ const StudentDashboard: React.FC<Props> = ({ user: initialUser, onLogout, autoLa
               />
           </div>
       )
+  }
+  
+  if (activeWhiteboard) {
+      return <WhiteboardRoom user={user} accessKey={activeWhiteboard} onExit={() => setActiveWhiteboard(null)} />;
   }
 
   return (
@@ -234,6 +252,12 @@ const StudentDashboard: React.FC<Props> = ({ user: initialUser, onLogout, autoLa
                className={`py-3 px-2 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'messages' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
            >
                <MessageCircle className="w-4 h-4"/> {t('messages')}
+           </button>
+           <button 
+               onClick={() => setActiveTab('whiteboard')}
+               className={`py-3 px-2 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'whiteboard' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+           >
+               <PenTool className="w-4 h-4"/> {t('whiteboard')}
            </button>
       </div>
 
@@ -402,6 +426,27 @@ const StudentDashboard: React.FC<Props> = ({ user: initialUser, onLogout, autoLa
                        )}
                  </div>
              </div>
+          )}
+          
+          {activeTab === 'whiteboard' && (
+              <div className="bg-white rounded-lg shadow-sm border p-8 flex flex-col items-center justify-center min-h-[400px]">
+                  <PenTool className="w-16 h-16 text-blue-200 mb-4"/>
+                  <h2 className="text-xl font-bold text-gray-700 mb-2">{t('joinWhiteboard')}</h2>
+                  <p className="text-gray-500 text-sm mb-6 text-center max-w-sm">{t('enterWbKey')}</p>
+                  
+                  <div className="flex gap-2 w-full max-w-xs">
+                      <input 
+                        className="flex-1 border-2 border-blue-100 rounded-lg p-3 text-center font-mono text-lg uppercase focus:border-blue-500 outline-none"
+                        placeholder="CODE"
+                        value={wbKey}
+                        onChange={e => setWbKey(e.target.value)}
+                        maxLength={6}
+                      />
+                      <button onClick={joinWhiteboard} className="bg-blue-600 text-white px-6 rounded-lg font-bold hover:bg-blue-700">
+                          {t('enter')}
+                      </button>
+                  </div>
+              </div>
           )}
       </main>
 

@@ -22,4 +22,5 @@ export const QUESTION_TYPE_LABELS: Record<string, string> = {
   ESSAY: 'Question Ouverte / Essai',
   MATCHING: 'Appariement',
   SHORT_ANSWER: 'Réponse Courte',
+  FILL_IN_THE_BLANK: 'Texte à trous',
 };
