@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001; // Support Cloud Port
 const JWT_SECRET = process.env.JWT_SECRET || 'tinmel_opensource_secret_key_change_me_in_prod';
 
 // --- CONFIGURATION MULTER (UPLOAD) ---
@@ -40,7 +40,7 @@ const upload = multer({
 
 // Middleware
 app.use(cors({
-    origin: 'http://localhost:3000',
+    origin: process.env.NODE_ENV === 'production' ? false : 'http://localhost:3000', // Allow same origin in prod
     credentials: true 
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -49,10 +49,11 @@ app.use(cookieParser());
 // Servir les fichiers uploadés statiquement
 app.use('/uploads', express.static(uploadDir));
 
-// Base de données SQLite
-const db = new sqlite3.Database('./database.sqlite', (err) => {
+// Base de données SQLite (Utiliser /data/database.sqlite pour la persistance sur certains hébergeurs comme Render avec Disk)
+const dbPath = process.env.DB_PATH || './database.sqlite';
+const db = new sqlite3.Database(dbPath, (err) => {
     if (err) console.error('Erreur ouverture base de données', err);
-    else console.log('Connecté à la base de données SQLite');
+    else console.log(`Connecté à la base de données SQLite (${dbPath})`);
 });
 
 // Initialisation des Tables
@@ -344,7 +345,22 @@ app.post('/api/quiz/submit', (req, res) => {
     });
 });
 
+// --- PRODUCTION: SERVE REACT STATIC FILES ---
+const distPath = join(__dirname, 'dist');
+if (fs.existsSync(distPath)) {
+    console.log("Serving static files from", distPath);
+    app.use(express.static(distPath));
+    
+    // Catch-all handler for React Router
+    app.get('*', (req, res) => {
+        if (!req.path.startsWith('/api')) {
+            res.sendFile(join(distPath, 'index.html'));
+        }
+    });
+} else {
+    console.log("Development mode: Static files not served by Express (use 'vite' for frontend)");
+}
+
 app.listen(PORT, () => {
-    console.log(`🚀 Serveur Backend Tinmel démarré sur http://localhost:${PORT}`);
-    console.log(`🌐 Frontend accessible sur http://localhost:3000`);
+    console.log(`🚀 Serveur Backend Tinmel démarré sur port ${PORT}`);
 });

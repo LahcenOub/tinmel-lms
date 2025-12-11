@@ -48,7 +48,8 @@ Ce projet est une réponse "Proof of Concept" (PoC) pour démontrer qu'un LMS pu
 *   Node.js (v18+)
 *   Une clé API Google Gemini (Gratuite sur [Google AI Studio](https://aistudio.google.com/))
 
-### Démarrage Rapide
+### Démarrage Rapide (Mode Développement)
+Utilisez cette commande pour coder. Le serveur redémarre à chaque modification.
 
 ```bash
 # 1. Cloner le dépôt
@@ -62,12 +63,24 @@ npm install
 # Créez un fichier .env à la racine et ajoutez :
 # REACT_APP_GEMINI_API_KEY=votre_cle_api
 
-# 4. Lancer (Frontend + Backend)
+# 4. Lancer (Frontend + Backend en parallèle)
 npm run dev
 ```
 
 Ouvrez **http://localhost:3000**.
 *   **Admin par défaut :** `admin` / `password123`
+
+### Tester le Build de Production
+Pour simuler l'environnement de production (fichiers minifiés servis par Express) :
+
+```bash
+# 1. Compiler le React (crée le dossier /dist)
+npm run build
+
+# 2. Lancer le serveur Node uniquement
+npm start
+```
+L'application sera accessible sur **http://localhost:3001**.
 
 ## 🤝 Contribution & Hacktoberfest
 

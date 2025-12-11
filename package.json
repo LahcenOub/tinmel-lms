@@ -22,10 +22,10 @@
     "morocco"
   ],
   "scripts": {
-    "start": "vite",
-    "server": "node server.js",
     "dev": "concurrently \"node server.js\" \"vite\"",
     "build": "tsc && vite build",
+    "start": "node server.js",
+    "server": "node server.js",
     "preview": "vite preview"
   },
   "dependencies": {
