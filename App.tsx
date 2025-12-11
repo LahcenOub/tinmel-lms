@@ -9,6 +9,7 @@ import ProfessorDashboard from './components/Dashboards/ProfessorDashboard';
 import StudentDashboard from './components/Dashboards/StudentDashboard';
 import ModeratorDashboard from './components/Dashboards/ModeratorDashboard';
 import CoordinatorDashboard from './components/Dashboards/CoordinatorDashboard';
+import AuthGuard from './components/Auth/AuthGuard';
 import { GraduationCap, ArrowLeft, Languages, Building2, AlertTriangle, Loader2, CheckCircle, Lock, Database, ShieldCheck, Github, ExternalLink, Trash2, Server, Star, Brain, PenTool } from 'lucide-react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
@@ -249,8 +250,12 @@ const LoginPage: React.FC<LoginProps> = ({ role, onLoginSuccess }) => {
         e.preventDefault();
         setError('');
         
+        // Try API Login first (HttpOnly Cookie)
         const foundUser = await ApiService.login(username, password);
+        
+        // Fallback to LocalStorage (Demo/Offline)
         const localUser = !foundUser ? StorageService.login(username, password) : null;
+        
         const finalUser = foundUser || localUser;
 
         if (finalUser) {
@@ -453,9 +458,17 @@ const AppContent: React.FC = () => {
       // Init logic
       const init = async () => {
           setLoading(true);
-          const session = StorageService.getSession();
-          if (session) {
-              setUser(session);
+          
+          // 1. Try Backend Session (HttpOnly Cookies)
+          const apiUser = await ApiService.checkSession();
+          if (apiUser) {
+              setUser(apiUser);
+          } else {
+              // 2. Fallback to LocalStorage (Demo Mode / Offline)
+              const session = StorageService.getSession();
+              if (session) {
+                  setUser(session);
+              }
           }
           
           const params = new URLSearchParams(window.location.search);
@@ -479,13 +492,14 @@ const AppContent: React.FC = () => {
   };
 
   const handleLoginSuccess = (loggedInUser: User) => {
-      StorageService.saveSession(loggedInUser);
+      StorageService.saveSession(loggedInUser); // Backup for offline mode
       setUser(loggedInUser);
       navigate(getDashboardPath(loggedInUser.role));
   };
 
-  const handleLogout = () => {
-      StorageService.clearSession();
+  const handleLogout = async () => {
+      await ApiService.logout(); // Clear Cookie
+      StorageService.clearSession(); // Clear LocalStorage
       setUser(null);
       navigate('/');
   };
@@ -519,46 +533,36 @@ const AppContent: React.FC = () => {
             <AdminPortal onLoginSuccess={handleLoginSuccess} />
         } />
 
-        {/* Protected Routes - Role Based Separation */}
+        {/* Protected Routes - Role Based Separation via AuthGuard */}
         
         <Route path="/admin/*" element={
-            user && user.role === UserRole.ADMIN ? (
+            <AuthGuard user={user} requiredRole={UserRole.ADMIN}>
                 <AdminDashboard onLogout={handleLogout} />
-            ) : (
-                <Navigate to="/" replace />
-            )
+            </AuthGuard>
         } />
 
         <Route path="/professor/*" element={
-            user && user.role === UserRole.PROFESSOR ? (
-                <ProfessorDashboard user={user} onLogout={handleLogout} />
-            ) : (
-                <Navigate to="/" replace />
-            )
+            <AuthGuard user={user} requiredRole={UserRole.PROFESSOR}>
+                <ProfessorDashboard user={user!} onLogout={handleLogout} />
+            </AuthGuard>
         } />
 
         <Route path="/student/*" element={
-            user && user.role === UserRole.STUDENT ? (
-                <StudentDashboard user={user} onLogout={handleLogout} autoLaunchQuizId={autoLaunchQuizId} />
-            ) : (
-                <Navigate to="/" replace />
-            )
+            <AuthGuard user={user} requiredRole={UserRole.STUDENT}>
+                <StudentDashboard user={user!} onLogout={handleLogout} autoLaunchQuizId={autoLaunchQuizId} />
+            </AuthGuard>
         } />
 
         <Route path="/coordinator/*" element={
-            user && user.role === UserRole.COORDINATOR ? (
-                <CoordinatorDashboard user={user} onLogout={handleLogout} />
-            ) : (
-                <Navigate to="/" replace />
-            )
+            <AuthGuard user={user} requiredRole={UserRole.COORDINATOR}>
+                <CoordinatorDashboard user={user!} onLogout={handleLogout} />
+            </AuthGuard>
         } />
 
         <Route path="/moderator/*" element={
-            user && user.role === UserRole.MODERATOR ? (
-                <ModeratorDashboard user={user} onLogout={handleLogout} />
-            ) : (
-                <Navigate to="/" replace />
-            )
+            <AuthGuard user={user} requiredRole={UserRole.MODERATOR}>
+                <ModeratorDashboard user={user!} onLogout={handleLogout} />
+            </AuthGuard>
         } />
 
         {/* Catch all */}

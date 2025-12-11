@@ -155,6 +155,14 @@ export interface Stroke {
     tool: 'pen' | 'eraser';
 }
 
+export interface WhiteboardMessage {
+    id: string;
+    senderId: string;
+    senderName: string;
+    content: string;
+    timestamp: string;
+}
+
 export interface WhiteboardSession {
     id: string;
     hostId: string;
@@ -164,4 +172,29 @@ export interface WhiteboardSession {
     isActive: boolean;
     createdAt: string;
     strokes: Stroke[];
+    messages: WhiteboardMessage[];
+}
+
+// IoT Types
+export type IoTDeviceType = 'ENV_SENSOR' | 'GPS_TRACKER' | 'RFID_GATE';
+
+export interface IoTDevice {
+    id: string;
+    school: string;
+    city: string;
+    type: IoTDeviceType;
+    name: string; // e.g. "Classroom 3 Sensor", "Bus 1"
+    status: 'ONLINE' | 'OFFLINE' | 'ALERT';
+    provider: string; // The Moroccan Tech Company Name
+    data: {
+        temperature?: number; // Celsius
+        humidity?: number; // %
+        co2?: number; // ppm
+        lat?: number;
+        lng?: number;
+        speed?: number; // km/h
+        lastScan?: string; // Name of student scanned
+        lastScanTime?: string;
+    };
+    lastUpdate: string;
 }

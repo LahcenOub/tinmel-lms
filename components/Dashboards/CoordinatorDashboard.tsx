@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { User, UserRole, Message } from '../../types';
+import { User, UserRole, Message, IoTDevice } from '../../types';
 import { StorageService } from '../../services/storageService';
-import { LogOut, Users, School, Settings, Upload, FileDown, CheckSquare, BarChart, UserPlus, Eye, EyeOff, X, MessageCircle, Send, AlertTriangle, Calendar, Activity } from 'lucide-react';
+import { LogOut, Users, School, Settings, Upload, FileDown, CheckSquare, BarChart, UserPlus, Eye, EyeOff, X, MessageCircle, Send, AlertTriangle, Calendar, Activity, Thermometer, Wind, Bus, ScanBarcode, Plus, Wifi, WifiOff, MapPin, Radio } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import * as XLSX from 'xlsx';
 
@@ -643,6 +643,149 @@ const MessagesView: React.FC<{ user: User }> = ({ user }) => {
     );
 };
 
+const SmartSchoolView: React.FC<{ user: User }> = ({ user }) => {
+    const { t } = useLanguage();
+    const [devices, setDevices] = useState<IoTDevice[]>([]);
+
+    useEffect(() => {
+        if (user.school && user.city) {
+            setDevices(StorageService.getIoTDevices(user.school, user.city));
+            
+            // Poll for live updates every 5 seconds
+            const interval = setInterval(() => {
+                setDevices(StorageService.getIoTDevices(user.school!, user.city!));
+            }, 5000);
+            return () => clearInterval(interval);
+        }
+    }, [user]);
+
+    const envSensors = devices.filter(d => d.type === 'ENV_SENSOR');
+    const trackers = devices.filter(d => d.type === 'GPS_TRACKER');
+    const gates = devices.filter(d => d.type === 'RFID_GATE');
+
+    // Aggregate Environmental Data
+    const avgTemp = envSensors.length > 0 ? (envSensors.reduce((acc, curr) => acc + (curr.data.temperature || 0), 0) / envSensors.length).toFixed(1) : 0;
+    const avgCO2 = envSensors.length > 0 ? Math.round(envSensors.reduce((acc, curr) => acc + (curr.data.co2 || 0), 0) / envSensors.length) : 0;
+
+    return (
+        <div className="space-y-6 animate-fade-in">
+            {/* Header / Intro */}
+            <div className="bg-gradient-to-r from-blue-900 to-indigo-800 rounded-xl p-6 text-white shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h2 className="text-2xl font-bold flex items-center gap-2"><Activity className="w-6 h-6"/> {t('iotDashboard')}</h2>
+                    <p className="text-blue-200 text-sm opacity-90">{t('iotDesc')}</p>
+                </div>
+                <button className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/40 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition">
+                    <Plus className="w-4 h-4"/> {t('connectDevice')}
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Environment Column */}
+                <div className="space-y-4">
+                    <h3 className="font-bold text-gray-700 flex items-center gap-2"><Thermometer className="w-5 h-5 text-blue-600"/> {t('envSensors')}</h3>
+                    
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-100 text-center">
+                            <div className="text-gray-500 text-xs uppercase font-bold mb-1">{t('temperature')}</div>
+                            <div className="text-2xl font-bold text-gray-800">{avgTemp}°C</div>
+                            <div className="text-xs text-green-600 mt-1 flex items-center justify-center gap-1"><CheckSquare className="w-3 h-3"/> {t('normal')}</div>
+                        </div>
+                        <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-100 text-center">
+                            <div className="text-gray-500 text-xs uppercase font-bold mb-1">{t('co2Level')}</div>
+                            <div className={`text-2xl font-bold ${Number(avgCO2) > 1000 ? 'text-red-600' : 'text-gray-800'}`}>{avgCO2} ppm</div>
+                            {Number(avgCO2) > 1000 ? (
+                                <div className="text-xs text-red-600 mt-1 font-bold animate-pulse">{t('warning')}</div>
+                            ) : (
+                                <div className="text-xs text-green-600 mt-1">{t('airQuality')} OK</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Sensor List */}
+                    <div className="bg-white rounded-lg shadow-sm overflow-hidden border">
+                        {envSensors.map(s => (
+                            <div key={s.id} className="p-4 border-b last:border-0 flex justify-between items-center hover:bg-gray-50">
+                                <div>
+                                    <div className="font-bold text-sm text-gray-800">{s.name}</div>
+                                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                                        <Wifi className="w-3 h-3 text-green-500"/> {s.provider}
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-sm font-mono font-bold">{s.data.temperature}°C</div>
+                                    <div className="text-xs text-gray-400">{s.data.humidity}% Hum</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Transport Column */}
+                <div className="space-y-4">
+                    <h3 className="font-bold text-gray-700 flex items-center gap-2"><Bus className="w-5 h-5 text-orange-600"/> {t('gpsTrackers')}</h3>
+                    
+                    <div className="bg-white rounded-lg shadow-sm border overflow-hidden p-4 min-h-[150px] relative bg-gray-50 flex items-center justify-center">
+                        {/* Mock Map Placeholder */}
+                        <div className="absolute inset-0 opacity-20 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ec/Map_of_Marrakech.png')] bg-cover bg-center grayscale"></div>
+                        <div className="relative z-10 text-center">
+                            <MapPin className="w-8 h-8 text-red-600 mx-auto animate-bounce"/>
+                            <p className="text-xs font-bold text-gray-600 mt-1">Live Tracking</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow-sm overflow-hidden border">
+                        {trackers.map(t => (
+                            <div key={t.id} className="p-4 border-b last:border-0 hover:bg-gray-50">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="font-bold text-sm">{t.name}</div>
+                                    <div className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded font-bold">{t.status}</div>
+                                </div>
+                                <div className="flex justify-between items-center text-xs text-gray-600">
+                                    <span className="flex items-center gap-1"><Activity className="w-3 h-3"/> {t.data.speed} km/h</span>
+                                    <span className="font-mono text-[10px]">[{t.data.lat?.toFixed(4)}, {t.data.lng?.toFixed(4)}]</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Security/RFID Column */}
+                <div className="space-y-4">
+                    <h3 className="font-bold text-gray-700 flex items-center gap-2"><ScanBarcode className="w-5 h-5 text-purple-600"/> {t('rfidGate')}</h3>
+                    
+                    {gates.map(g => (
+                        <div key={g.id} className="bg-white rounded-lg shadow-sm p-4 border border-l-4 border-l-purple-500">
+                            <div className="flex justify-between items-center mb-3">
+                                <div className="font-bold text-gray-800">{g.name}</div>
+                                <Radio className="w-4 h-4 text-purple-500 animate-pulse"/>
+                            </div>
+                            <div className="bg-gray-50 p-3 rounded border border-dashed border-gray-200">
+                                <div className="text-xs text-gray-500 uppercase font-bold mb-1">{t('lastScan')}</div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 font-bold text-xs">
+                                        {g.data.lastScan?.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-bold text-gray-800">{g.data.lastScan}</div>
+                                        <div className="text-[10px] text-gray-400">{new Date(g.data.lastScanTime || '').toLocaleTimeString()}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="mt-3 text-right">
+                                <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded">by {g.provider}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+            </div>
+        </div>
+    );
+};
+
 // --- MAIN COMPONENT ---
 
 const CoordinatorDashboard: React.FC<Props> = ({ user, onLogout }) => {
@@ -673,7 +816,8 @@ const CoordinatorDashboard: React.FC<Props> = ({ user, onLogout }) => {
                     {id: 'messages', icon: MessageCircle, label: t('messages')},
                     {id: 'students', icon: Upload, label: t('manageStudents')},
                     {id: 'stats', icon: BarChart, label: t('stats')},
-                    {id: 'risk', icon: AlertTriangle, label: t('riskDetection')}
+                    {id: 'risk', icon: AlertTriangle, label: t('riskDetection')},
+                    {id: 'smart-school', icon: Activity, label: t('smartSchool')}
                 ].map(tab => (
                     <Link 
                         key={tab.id}
@@ -692,6 +836,7 @@ const CoordinatorDashboard: React.FC<Props> = ({ user, onLogout }) => {
                 <Route path="stats" element={<StatsView user={user} />} />
                 <Route path="risk" element={<RiskView user={user} />} />
                 <Route path="messages" element={<MessagesView user={user} />} />
+                <Route path="smart-school" element={<SmartSchoolView user={user} />} />
                 
                 <Route path="*" element={<Navigate to="structure" replace />} />
             </Routes>

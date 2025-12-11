@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Quiz, Question, QuestionType, QuizResult } from '../../types';
 import { GeminiService } from '../../services/geminiService';
 import { StorageService } from '../../services/storageService';
+import { ApiService } from '../../services/apiService';
 import { CheckCircle, Clock, Timer, ArrowRight, ArrowLeft, Mic, MicOff } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -53,8 +54,6 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
 
     if (isListening) {
         setIsListening(false);
-        // Stop is handled by the object itself if we kept a ref, but here we rely on simple toggle for UI
-        // In a real implementation we would need a ref to the recognition instance to call .stop()
         return;
     }
 
@@ -78,17 +77,20 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
   const handleSubmit = async () => {
     if (isSubmitting) return; 
     setIsSubmitting(true);
+    
     let calculatedScore = 0;
     let maxScore = 0;
+    const essayScores: Record<string, number> = {};
 
+    // First Pass: Calculate Essay Scores locally using Gemini AI (since backend integration for AI is future work)
+    // and also calculate fallback scores for Offline mode
     for (const q of quiz.questions) {
       maxScore += q.points;
       const userAns = answers[q.id];
 
+      // --- Local Calculation (Fallback) ---
       if (q.type === QuestionType.MCQ || q.type === QuestionType.IMAGE_MCQ || q.type === QuestionType.BOOLEAN) {
-        if (userAns === q.correctAnswer) {
-          calculatedScore += q.points;
-        }
+        if (userAns === q.correctAnswer) calculatedScore += q.points;
       } else if (q.type === QuestionType.SHORT_ANSWER) {
          if (typeof userAns === 'string' && typeof q.correctAnswer === 'string' && userAns.trim().toLowerCase() === q.correctAnswer.trim().toLowerCase()) {
              calculatedScore += q.points;
@@ -124,6 +126,7 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
               const grading = await GeminiService.gradeEssay(q.text, userAns || '');
               const normalizedScore = (grading.score / 10) * q.points;
               calculatedScore += normalizedScore;
+              essayScores[q.id] = normalizedScore; // Store for backend
           } catch (e) {
               console.warn("AI grading failed, score 0 for this question");
           }
@@ -133,20 +136,36 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
     const endTime = Date.now();
     const timeSpentSeconds = Math.floor((endTime - startTimeRef.current) / 1000);
 
-    const result: QuizResult = {
-        id: `res-${Date.now()}`,
+    // Try Backend Submission First
+    const backendResult = await ApiService.submitQuiz({
         quizId: quiz.id,
         studentId,
         studentName,
         answers,
-        score: Math.round(calculatedScore * 10) / 10,
-        maxScore,
-        submittedAt: new Date().toISOString(),
-        startedAt: new Date(startTimeRef.current).toISOString(),
-        timeSpent: timeSpentSeconds
-    };
+        timeSpent: timeSpentSeconds,
+        essayScores
+    });
 
-    StorageService.saveResult(result);
+    if (backendResult) {
+        // Use Backend Result if available
+        StorageService.saveResult(backendResult); // Cache local copy for UI
+    } else {
+        // Fallback to Local Calculation
+        const result: QuizResult = {
+            id: `res-${Date.now()}`,
+            quizId: quiz.id,
+            studentId,
+            studentName,
+            answers,
+            score: Math.round(calculatedScore * 10) / 10,
+            maxScore,
+            submittedAt: new Date().toISOString(),
+            startedAt: new Date(startTimeRef.current).toISOString(),
+            timeSpent: timeSpentSeconds
+        };
+        StorageService.saveResult(result);
+    }
+
     setIsSubmitting(false);
     onComplete();
   };

@@ -196,6 +196,7 @@ export const translations = {
     studentDirectory: "Annuaire des Étudiants",
     selectClassToView: "Sélectionnez une classe pour voir les étudiants",
     exportClassCredentials: "Exporter Liste Classe",
+    smartSchool: "Smart School IoT",
     
     // Risk Detection
     riskDetection: "Détection de Décrochage",
@@ -207,6 +208,26 @@ export const translations = {
     neverConnected: "Jamais",
     riskHigh: "CRITIQUE",
     riskMedium: "ATTENTION",
+    
+    // IoT
+    iotDashboard: "Tableau de Bord IoT",
+    iotDesc: "Gestion intelligente des infrastructures (Partenariat Tech Maroc).",
+    envSensors: "Capteurs Environnement",
+    gpsTrackers: "Flotte de Transport",
+    rfidGate: "Contrôle d'Accès",
+    temperature: "Température",
+    humidity: "Humidité",
+    airQuality: "Qualité de l'Air",
+    co2Level: "Niveau CO2",
+    normal: "Normal",
+    warning: "Attention",
+    critical: "Critique",
+    online: "En Ligne",
+    offline: "Hors Ligne",
+    speed: "Vitesse",
+    lastScan: "Dernier passage",
+    connectDevice: "Connecter un appareil",
+    iotPartner: "Partenaire Tech",
     
     // Professor Dashboard
     staffRoom: "Salle des Profs",
@@ -547,6 +568,7 @@ export const translations = {
     studentDirectory: "دليل الطلاب",
     selectClassToView: "اختر قسماً لعرض الطلاب",
     exportClassCredentials: "تصدير القسم",
+    smartSchool: "المدرسة الذكية (IoT)",
 
     // Risk Detection
     riskDetection: "كشف التعثر",
@@ -558,6 +580,26 @@ export const translations = {
     neverConnected: "أبداً",
     riskHigh: "حرج",
     riskMedium: "تنبيه",
+    
+    // IoT
+    iotDashboard: "لوحة تحكم IoT",
+    iotDesc: "الإدارة الذكية للمرافق (شراكة مع شركات التقنية المغربية).",
+    envSensors: "مستشعرات البيئة",
+    gpsTrackers: "أسطول النقل",
+    rfidGate: "مراقبة الدخول",
+    temperature: "حرارة",
+    humidity: "رطوبة",
+    airQuality: "جودة الهواء",
+    co2Level: "مستوى CO2",
+    normal: "طبيعي",
+    warning: "تنبيه",
+    critical: "حرج",
+    online: "متصل",
+    offline: "غير متصل",
+    speed: "السرعة",
+    lastScan: "آخر مرور",
+    connectDevice: "ربط جهاز",
+    iotPartner: "شريك تقني",
     
     // Professor Dashboard
     staffRoom: "قاعة الأساتذة",

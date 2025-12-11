@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
 import { Quiz, Question, QuestionType, MatchingPair } from '../../types';
-import { Plus, Trash2, Save, Wand2, RefreshCcw, Lock, Clock, Calendar, Image as ImageIcon, CheckSquare, Type, Split, AlignLeft, List, MousePointerClick, MessageSquare, PenTool } from 'lucide-react';
+import { Plus, Trash2, Save, Wand2, RefreshCcw, Lock, Clock, Calendar, Image as ImageIcon, CheckSquare, Type, Split, AlignLeft, List, MousePointerClick, MessageSquare, PenTool, Loader2 } from 'lucide-react';
 import { GeminiService } from '../../services/geminiService';
+import { ApiService } from '../../services/apiService';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 interface QuizBuilderProps {
@@ -24,6 +25,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
   const [isPublished, setIsPublished] = useState(true);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [uploadingState, setUploadingState] = useState<Record<string, boolean>>({});
   const [genTopic, setGenTopic] = useState('');
 
   const addQuestion = (type: QuestionType) => {
@@ -51,14 +53,18 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
     setQuestions(questions.filter(q => q.id !== id));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, qId: string) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, qId: string) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        updateQuestion(qId, { imageUrl: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+        setUploadingState(prev => ({ ...prev, [qId]: true }));
+        try {
+            const url = await ApiService.uploadFile(file);
+            updateQuestion(qId, { imageUrl: url });
+        } catch (error) {
+            alert("Erreur lors de l'upload.");
+        } finally {
+            setUploadingState(prev => ({ ...prev, [qId]: false }));
+        }
     }
   };
 
@@ -260,14 +266,6 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
 
       {/* Questions List */}
       <div className="space-y-6 mb-8">
-        {questions.length === 0 && (
-            <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex flex-col items-center justify-center">
-                <div className="bg-gray-100 p-4 rounded-full mb-3"><Plus className="w-6 h-6 text-gray-400"/></div>
-                <div className="text-gray-500 font-medium mb-1">Le quiz est vide</div>
-                <div className="text-sm text-gray-400">Sélectionnez un type de question ci-dessous pour commencer.</div>
-            </div>
-        )}
-        
         {questions.map((q, idx) => (
           <div key={q.id} className="border border-gray-200 rounded-lg p-5 bg-white shadow-sm relative group hover:border-blue-300 transition-colors">
             <div className="absolute top-4 end-4 flex gap-2">
@@ -322,14 +320,21 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
                       </button>
                     </div>
                   ) : (
-                    <label className="flex flex-col items-center justify-center w-full max-w-sm h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors">
-                        <ImageIcon className="text-gray-400 w-8 h-8 mb-2"/>
-                        <span className="text-sm text-gray-500 font-medium">{t('upload')}</span>
+                    <label className="flex flex-col items-center justify-center w-full max-w-sm h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors relative">
+                        {uploadingState[q.id] ? (
+                            <Loader2 className="animate-spin text-blue-500 w-8 h-8"/>
+                        ) : (
+                            <>
+                                <ImageIcon className="text-gray-400 w-8 h-8 mb-2"/>
+                                <span className="text-sm text-gray-500 font-medium">{t('upload')}</span>
+                            </>
+                        )}
                         <input 
                             type="file" 
                             accept="image/*" 
                             className="hidden" 
                             onChange={(e) => handleImageUpload(e, q.id)} 
+                            disabled={uploadingState[q.id]}
                             onClick={(e) => (e.currentTarget.value = '')} // Allow re-uploading same file
                         />
                     </label>
@@ -496,7 +501,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
         ))}
       </div>
 
-      {/* New Question Type Selector (Grid Layout) */}
+      {/* Question Type Selector */}
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
           <h3 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wider flex items-center gap-2">
               <Plus className="w-4 h-4"/> Ajouter une question

@@ -1,3 +1,4 @@
+
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -15,13 +16,16 @@ export default defineConfig(({ mode }) => {
           target: 'http://localhost:3001',
           changeOrigin: true,
           secure: false,
-          // Empêche le crash/spam dans la console si le backend est éteint
           configure: (proxy, _options) => {
             proxy.on('error', (err, _req, _res) => {
               // On ignore silencieusement les erreurs de connexion
-              // Cela permet au Frontend de basculer en mode LocalStorage sans polluer la console
             });
           }
+        },
+        '/uploads': {
+          target: 'http://localhost:3001',
+          changeOrigin: true,
+          secure: false
         }
       }
     },

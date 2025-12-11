@@ -4,7 +4,7 @@ import { User, Quiz, UserRole, Message, Lesson, LessonType } from '../../types';
 import { StorageService } from '../../services/storageService';
 import QuizTaker from '../Quiz/QuizTaker';
 import WhiteboardRoom from '../Whiteboard/WhiteboardRoom';
-import { LogOut, CheckCircle, Play, Lock, Clock, Calendar, MessageCircle, Send, BookOpen, Video, File, ExternalLink, User as UserIcon, Award, Star, Zap, PenTool } from 'lucide-react';
+import { LogOut, CheckCircle, Play, Lock, Clock, Calendar, MessageCircle, Send, BookOpen, Video, File, ExternalLink, User as UserIcon, Award, Star, Zap, PenTool, Download, Image as ImageIcon, FileText } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 interface Props {
@@ -139,6 +139,7 @@ const StudentDashboard: React.FC<Props> = ({ user: initialUser, onLogout, autoLa
   };
 
   const getYoutubeId = (url: string) => {
+      if (!url) return null;
       const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
       const match = url.match(regExp);
       return (match && match[2].length === 11) ? match[2] : null;
@@ -157,6 +158,71 @@ const StudentDashboard: React.FC<Props> = ({ user: initialUser, onLogout, autoLa
           case 'badge_speedster': return <Zap className="w-5 h-5 text-purple-500" />;
           default: return <Award className="w-5 h-5 text-blue-500" />;
       }
+  };
+
+  const renderLessonContent = (lesson: Lesson) => {
+      const url = lesson.contentUrl;
+      const isVideo = lesson.type === LessonType.VIDEO;
+      
+      // 1. YouTube Video
+      if (isVideo) {
+          const ytId = getYoutubeId(url);
+          if (ytId) {
+              return (
+                  <div className="aspect-video rounded-lg overflow-hidden shadow">
+                      <iframe 
+                        width="100%" 
+                        height="100%" 
+                        src={`https://www.youtube.com/embed/${ytId}`} 
+                        title={lesson.title}
+                        frameBorder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowFullScreen
+                      ></iframe>
+                  </div>
+              );
+          }
+      }
+
+      // 2. Images
+      if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
+          return (
+              <div className="bg-gray-50 rounded-lg p-4 flex flex-col items-center">
+                  <img src={url} alt={lesson.title} className="max-h-[400px] w-auto rounded shadow-sm border" />
+                  <a href={url} download className="mt-4 text-blue-600 hover:underline flex items-center gap-2">
+                      <Download className="w-4 h-4"/> Télécharger l'image
+                  </a>
+              </div>
+          );
+      }
+
+      // 3. PDF
+      if (url.match(/\.pdf$/i)) {
+          return (
+              <div className="bg-gray-50 rounded-lg p-4 border flex flex-col items-center justify-center min-h-[200px]">
+                  <FileText className="w-16 h-16 text-red-500 mb-2"/>
+                  <span className="font-bold text-gray-700">Document PDF</span>
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="mt-2 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 flex items-center gap-2">
+                      <ExternalLink className="w-4 h-4"/> Ouvrir le PDF
+                  </a>
+              </div>
+          );
+      }
+
+      // 4. Default Fallback
+      return (
+          <div className="flex items-center justify-between bg-white p-4 rounded border">
+              <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="p-2 bg-gray-100 rounded">
+                      <File className="w-5 h-5 text-gray-600"/>
+                  </div>
+                  <span className="text-sm font-medium text-gray-700 truncate">{url.split('/').pop() || 'Lien vers le contenu'}</span>
+              </div>
+              <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 text-sm shrink-0">
+                  {t('viewContent')} <ExternalLink className="w-3 h-3"/>
+              </a>
+          </div>
+      );
   };
 
   if (activeQuiz) {
@@ -234,28 +300,28 @@ const StudentDashboard: React.FC<Props> = ({ user: initialUser, onLogout, autoLa
       </div>
       
       {/* Student Tabs */}
-      <div className="bg-white border-b px-6 flex gap-6 justify-center">
+      <div className="bg-white border-b px-6 flex gap-6 justify-center overflow-x-auto">
            <button 
                onClick={() => setActiveTab('quizzes')}
-               className={`py-3 px-2 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'quizzes' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+               className={`py-3 px-2 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'quizzes' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
            >
                <CheckCircle className="w-4 h-4"/> {t('myQuizzes')}
            </button>
            <button 
                onClick={() => setActiveTab('lessons')}
-               className={`py-3 px-2 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'lessons' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+               className={`py-3 px-2 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'lessons' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
            >
                <BookOpen className="w-4 h-4"/> {t('myCourses')}
            </button>
            <button 
                onClick={() => setActiveTab('messages')}
-               className={`py-3 px-2 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'messages' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+               className={`py-3 px-2 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'messages' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
            >
                <MessageCircle className="w-4 h-4"/> {t('messages')}
            </button>
            <button 
                onClick={() => setActiveTab('whiteboard')}
-               className={`py-3 px-2 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${activeTab === 'whiteboard' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+               className={`py-3 px-2 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'whiteboard' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
            >
                <PenTool className="w-4 h-4"/> {t('whiteboard')}
            </button>
@@ -269,7 +335,7 @@ const StudentDashboard: React.FC<Props> = ({ user: initialUser, onLogout, autoLa
                   const availability = getAvailabilityStatus(q);
                   
                   return (
-                      <div key={q.id} className="bg-white p-6 rounded-lg shadow-sm border flex justify-between items-center hover:shadow-md transition">
+                      <div key={q.id} className="bg-white p-6 rounded-lg shadow-sm border flex flex-col md:flex-row justify-between items-start md:items-center hover:shadow-md transition gap-4">
                           <div>
                               <div className="flex items-center gap-2 mb-1">
                                   <h3 className="font-bold text-lg text-gray-800">{q.title}</h3>
@@ -302,17 +368,17 @@ const StudentDashboard: React.FC<Props> = ({ user: initialUser, onLogout, autoLa
                                   <span className="text-blue-600 bg-blue-50 px-2 py-1 rounded text-sm font-medium">{t('start')}</span>
                               ) : null}
                           </div>
-                          <div>
+                          <div className="w-full md:w-auto">
                               {!result ? (
                                   <button 
                                     onClick={() => handleStartClick(q)}
                                     disabled={availability.status !== 'OPEN'}
-                                    className={`px-6 py-2 rounded-full flex items-center gap-2 transition-transform transform ${availability.status === 'OPEN' ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+                                    className={`w-full md:w-auto px-6 py-2 rounded-full flex justify-center items-center gap-2 transition-transform transform ${availability.status === 'OPEN' ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
                                   >
                                       {t('start')} <Play className="w-4 h-4 fill-current rtl:flip"/>
                                   </button>
                               ) : (
-                                  <button disabled className="bg-gray-200 text-gray-500 px-6 py-2 rounded-full cursor-not-allowed">
+                                  <button disabled className="w-full md:w-auto bg-gray-200 text-gray-500 px-6 py-2 rounded-full cursor-not-allowed">
                                       {t('completed')}
                                   </button>
                               )}
@@ -342,26 +408,7 @@ const StudentDashboard: React.FC<Props> = ({ user: initialUser, onLogout, autoLa
                                 </div>
                           </div>
                           <div className="p-4 bg-gray-50">
-                              {l.type === LessonType.VIDEO && getYoutubeId(l.contentUrl) ? (
-                                  <div className="aspect-video rounded-lg overflow-hidden shadow">
-                                      <iframe 
-                                        width="100%" 
-                                        height="100%" 
-                                        src={`https://www.youtube.com/embed/${getYoutubeId(l.contentUrl)}`} 
-                                        title={l.title}
-                                        frameBorder="0" 
-                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                        allowFullScreen
-                                      ></iframe>
-                                  </div>
-                              ) : (
-                                  <div className="flex items-center justify-between bg-white p-4 rounded border">
-                                      <span className="text-sm font-medium text-gray-700 truncate max-w-[80%]">{l.contentUrl}</span>
-                                      <a href={l.contentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 text-sm">
-                                          {t('viewContent')} <ExternalLink className="w-3 h-3"/>
-                                      </a>
-                                  </div>
-                              )}
+                              {renderLessonContent(l)}
                           </div>
                       </div>
                   ))}

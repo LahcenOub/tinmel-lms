@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { User, UserRole, Quiz, QuizResult, Message, Lesson, LessonType, Announcement, WhiteboardSession } from '../../types';
 import { StorageService } from '../../services/storageService';
+import { ApiService } from '../../services/apiService';
 import QuizBuilder from '../Quiz/QuizBuilder';
 import WhiteboardRoom from '../Whiteboard/WhiteboardRoom';
-import { LogOut, Users, FileText, BarChart, Download, Link as LinkIcon, Lock, Globe, EyeOff, Clock, MessageCircle, Send, BookOpen, Video, File, Trash, UserCircle, Save, Bell, X, Megaphone, Filter, PlusCircle, AlertTriangle, Coffee, Table, PenTool, ExternalLink } from 'lucide-react';
+import { LogOut, Users, FileText, BarChart, Download, Link as LinkIcon, Lock, Globe, EyeOff, Clock, MessageCircle, Send, BookOpen, Video, File, Trash, UserCircle, Save, Bell, X, Megaphone, Filter, PlusCircle, AlertTriangle, Coffee, Table, PenTool, ExternalLink, Loader2, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -14,7 +15,10 @@ interface Props {
   onLogout: () => void;
 }
 
-// --- SUB-COMPONENTS (VIEWS) ---
+// ... (Other views remain the same, only updating LessonBuilderWrapper and main Dashboard if needed) ...
+
+// --- REUSING PREVIOUS VIEWS (QuizzesView, StudentsView, ResultsView, StaffRoomView, ProfileView, MessagesView, WhiteboardView) ---
+// (For brevity, I will output the FULL file content ensuring everything is included, but focusing on the LessonBuilder update)
 
 const QuizzesView: React.FC<{ user: User }> = ({ user }) => {
     const { t } = useLanguage();
@@ -32,8 +36,6 @@ const QuizzesView: React.FC<{ user: User }> = ({ user }) => {
     };
 
     const copyQuizLink = (quizId: string) => {
-        const url = `${window.location.origin}${window.location.pathname}?quizId=${quizId}`; // Note: This might need adjustment based on route
-        // Better to use a clean base URL
         const cleanUrl = `${window.location.origin}/?quizId=${quizId}`;
         navigator.clipboard.writeText(cleanUrl);
         alert(t('linkCopied'));
@@ -135,7 +137,6 @@ const StudentsView: React.FC<{ user: User }> = ({ user }) => {
     const assignedClasses = user.assignedSections || [];
 
     useEffect(() => {
-        // Fetch students only once or when needed
         setStudents(StorageService.getUsers().filter(u => u.role === UserRole.STUDENT));
     }, []);
 
@@ -223,7 +224,6 @@ const ResultsView: React.FC<{ user: User }> = ({ user }) => {
 
     return (
         <div className="space-y-6 animate-fade-in">
-             {/* Quiz Performance Block */}
              <div className="bg-white p-6 rounded-lg shadow border-t-4 border-indigo-500">
                 <h3 className="font-bold text-gray-800 mb-4 text-lg">{t('quizPerformance')}</h3>
                 <div className="overflow-x-auto">
@@ -255,7 +255,6 @@ const ResultsView: React.FC<{ user: User }> = ({ user }) => {
                 </div>
             </div>
 
-            {/* Class Matrix */}
             <div className="bg-white p-6 rounded-lg shadow border-t-4 border-purple-500">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                     <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2"><Table className="w-5 h-5"/> {t('resultsByClass')}</h3>
@@ -307,7 +306,6 @@ const StaffRoomView: React.FC<{ user: User }> = ({ user }) => {
 
     useEffect(() => {
         setStaffMessages(StorageService.getGroupMessages(staffChatId));
-        // Mark as read
         localStorage.setItem(`lastStaffRead_${user.id}`, Date.now().toString());
     }, [user.id, staffChatId]);
 
@@ -448,8 +446,6 @@ const MessagesView: React.FC<{ user: User }> = ({ user }) => {
     );
 };
 
-// --- WHITEBOARD VIEW ---
-
 const WhiteboardView: React.FC<{ user: User }> = ({ user }) => {
     const { t } = useLanguage();
     const [sessions, setSessions] = useState<WhiteboardSession[]>([]);
@@ -476,7 +472,8 @@ const WhiteboardView: React.FC<{ user: User }> = ({ user }) => {
             accessKey: key,
             isActive: true,
             createdAt: new Date().toISOString(),
-            strokes: []
+            strokes: [],
+            messages: []
         };
         
         StorageService.saveWhiteboard(newSession);
@@ -552,6 +549,7 @@ const LessonBuilderWrapper: React.FC<{ user: User }> = ({ user }) => {
     const navigate = useNavigate();
     const assignedClasses = user.assignedSections || [];
     const [form, setForm] = useState({ title: '', desc: '', classes: [] as string[], type: LessonType.VIDEO, content: '', status: 'DRAFT' as 'DRAFT' | 'PUBLISHED' });
+    const [isUploading, setIsUploading] = useState(false);
 
     const handleSave = () => {
         if (!form.title || !form.content) return;
@@ -562,6 +560,21 @@ const LessonBuilderWrapper: React.FC<{ user: User }> = ({ user }) => {
 
     const toggleClass = (cls: string) => {
         setForm(prev => ({ ...prev, classes: prev.classes.includes(cls) ? prev.classes.filter(c => c !== cls) : [...prev.classes, cls] }));
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setIsUploading(true);
+            try {
+                const url = await ApiService.uploadFile(file);
+                setForm({ ...form, content: url });
+            } catch (err) {
+                alert("Upload failed.");
+            } finally {
+                setIsUploading(false);
+            }
+        }
     };
 
     return (
@@ -586,7 +599,17 @@ const LessonBuilderWrapper: React.FC<{ user: User }> = ({ user }) => {
                     </div>
                     <div>
                          <label className="block text-sm font-medium mb-1">{form.type === LessonType.VIDEO ? t('videoUrl') : t('fileUpload')}</label>
-                         <input className="w-full border rounded p-2" value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder={form.type === LessonType.VIDEO ? "https://youtube.com/..." : "URL..."} />
+                         {form.type === LessonType.VIDEO ? (
+                             <input className="w-full border rounded p-2" value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="https://youtube.com/..." />
+                         ) : (
+                             <div className="flex gap-2">
+                                 <input className="flex-1 border rounded p-2" value={form.content} readOnly placeholder="URL..." />
+                                 <label className="bg-gray-100 hover:bg-gray-200 border rounded px-3 flex items-center justify-center cursor-pointer">
+                                     {isUploading ? <Loader2 className="w-4 h-4 animate-spin"/> : <Upload className="w-4 h-4"/>}
+                                     <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading}/>
+                                 </label>
+                             </div>
+                         )}
                     </div>
                </div>
                <div>
@@ -603,7 +626,7 @@ const LessonBuilderWrapper: React.FC<{ user: User }> = ({ user }) => {
            </div>
            <div className="flex justify-end gap-3 mt-8 pt-4 border-t">
                <button onClick={() => navigate('/professor/lessons')} className="px-4 py-2 text-gray-600 hover:text-gray-800">{t('cancel')}</button>
-               <button onClick={handleSave} className="px-6 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 flex items-center gap-2">
+               <button onClick={handleSave} disabled={isUploading} className="px-6 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50">
                    <Save className="h-4 w-4 rtl:flip" /> {t('save')}
                </button>
            </div>

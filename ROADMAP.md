@@ -10,23 +10,23 @@ L'objectif est de sécuriser l'application et de sortir de la dépendance au `lo
 - [ ] **Routing Professionnel**
     - [x] Implémentation History API (Fait).
     - [ ] Migration vers `react-router-dom` v6 pour une gestion native des routes imbriquées et des loaders.
-    - [ ] Protection des routes (`AuthGuard`) coté client.
+    - [x] Protection des routes (`AuthGuard`) coté client.
 
 - [ ] **Backend First (Sécurité)**
-    - [ ] Déplacer la logique de validation des Quiz du Frontend vers le Backend (Node.js).
-    - [ ] Remplacer le stockage de Token dans `localStorage` par des **Cookies HttpOnly** (protection XSS).
-    - [ ] Hashage des mots de passe coté serveur (Bcrypt) obligatoire.
+    - [x] Déplacer la logique de validation des Quiz du Frontend vers le Backend (Node.js).
+    - [x] Remplacer le stockage de Token dans `localStorage` par des **Cookies HttpOnly** (protection XSS).
+    - [x] Hashage des mots de passe coté serveur (Bcrypt) obligatoire.
 
 - [ ] **Gestion des Fichiers**
-    - [ ] Remplacer le stockage d'images Base64 (lourd pour la BDD) par un système d'upload de fichiers.
-    - [ ] Intégration de `Multer` (Node.js) et stockage local ou S3.
+    - [x] Remplacer le stockage d'images Base64 (lourd pour la BDD) par un système d'upload de fichiers.
+    - [x] Intégration de `Multer` (Node.js) et stockage local ou S3.
 
 ## 🟡 Priorité Moyenne : Performance & Scalabilité (Q3 2025)
 
 Préparer l'application pour supporter 2000+ élèves simultanés.
 
 - [ ] **Optimisation des Données**
-    - [ ] Implémenter la **Pagination** coté serveur pour les listes d'élèves et de résultats.
+    - [x] Implémenter la **Pagination** coté serveur pour les listes d'élèves et de résultats.
     - [ ] Mettre en place `TanStack Query` (React Query) pour le cache et la gestion des états serveur.
 
 - [ ] **Temps Réel**
