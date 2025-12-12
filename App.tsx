@@ -21,16 +21,19 @@ const CalligraphyBackground = () => {
             'ا', 'ب', 'ح', 'د', 'ر', 'س', 'ص', 'ط', 'ع', 'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'و', 'ي',
             'أ', 'إ', 'آ', 'ة', 'ث', 'ج', 'خ', 'ذ', 'ز', 'ش', 'ض', 'ظ', 'غ', 'ف',
             'ⴰ', 'ⴱ', 'ⴳ', 'ⴷ', 'ⴹ', 'ⴻ', 'ⴼ', 'ⴽ', 'ⵀ', 'ⵃ', 'ⵄ', 'ⵅ', 'ⵇ', 'ⵉ', 'ⵊ', 'ⵍ', 'ⵎ', 'ⵏ', 'ⵓ', 'ⵔ', 'ⵕ', 'ⵖ', 'ⵙ', 'ⵚ', 'ⵛ', 'ⵜ', 'ⵟ', 'ⵡ', 'ⵢ', 'ⵣ', 'ⵥ',
-            'تينمل', 'ⵜⵉⵏⵎⴻⵍ', 'ⵉⵇⵔⴰ', 'إقرأ', 'ⴰⵍⵎⵓⴷ', 'علم', 'ⵜⴰⵎⵓⵙⵏⵉ'
+            'تينمل', 'ⵜⵉⵏⵎⴻⵍ', 'ⵉⵇⵔⴰ', 'إقرأ', 'ⴰⵍⵎⵓⴷ', 'علم', 'ⵜⴰⵎⵓⵙⵏⵉ', 'Tinmel', 'Education', 'Savoir', 'المعرفة'
         ];
 
-        for (let i = 0; i < 45; i++) {
+        for (let i = 0; i < 60; i++) {
             items.push({
                 char: chars[Math.floor(Math.random() * chars.length)],
                 top: Math.random() * 100,
                 left: Math.random() * 100,
-                rotate: (Math.random() * 60) - 30, 
-                size: Math.random() * 12 + 6, 
+                size: Math.random() * 6 + 2, // 2rem to 8rem for depth
+                duration: Math.random() * 20 + 20, // 20s to 40s slow movement
+                delay: Math.random() * 20,
+                initialRotate: Math.random() * 360,
+                opacity: Math.random() * 0.05 + 0.02, // very subtle
                 font: Math.random() > 0.5 ? 'Amiri' : 'sans-serif' 
             });
         }
@@ -38,25 +41,36 @@ const CalligraphyBackground = () => {
     }, []);
 
     return (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none bg-blue-900">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none bg-[#0f172a]">
+            <style>{`
+                @keyframes swim {
+                    0% { transform: translate(0, 0) rotate(0deg); }
+                    33% { transform: translate(30px, -30px) rotate(5deg); }
+                    66% { transform: translate(-20px, 20px) rotate(-5deg); }
+                    100% { transform: translate(0, 0) rotate(0deg); }
+                }
+            `}</style>
+            
             {elements.map((el, i) => (
                 <div key={i} style={{
                     position: 'absolute',
                     top: `${el.top}%`,
                     left: `${el.left}%`,
-                    transform: `translate(-50%, -50%) rotate(${el.rotate}deg)`,
                     fontSize: `${el.size}rem`,
                     fontFamily: el.font === 'Amiri' ? '"Amiri", serif' : 'sans-serif',
-                    color: 'rgba(255, 255, 255, 0.05)',
+                    color: `rgba(255, 255, 255, ${el.opacity})`,
                     zIndex: 0,
                     lineHeight: 1,
                     whiteSpace: 'nowrap',
-                    filter: 'blur(1px)'
+                    filter: 'blur(1px)',
+                    animation: `swim ${el.duration}s ease-in-out infinite -${el.delay}s`
                 }}>
-                    {el.char}
+                    <div style={{ transform: `rotate(${el.initialRotate}deg)` }}>
+                        {el.char}
+                    </div>
                 </div>
             ))}
-            <div className="absolute inset-0 bg-gradient-to-b from-blue-900/40 via-blue-900/60 to-blue-900/90 z-0"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-blue-900/20 via-[#0f172a]/60 to-[#0f172a] z-0"></div>
         </div>
     );
 };
@@ -176,7 +190,7 @@ const LandingPage: React.FC = () => {
 
             <div className="z-10 w-full max-w-4xl px-4 animate-fade-in flex flex-col items-center justify-between min-h-[80vh]">
                  <div className="text-center relative mt-10">
-                     <div className="absolute -inset-10 bg-blue-600/30 blur-3xl -z-10 rounded-full"></div>
+                     <div className="absolute -inset-10 bg-blue-600/10 blur-3xl -z-10 rounded-full"></div>
                      <h1 className="text-6xl md:text-8xl font-black text-white font-logo tracking-tight mb-4 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
                         {t('appName')}
                      </h1>

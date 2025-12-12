@@ -1,5 +1,4 @@
-
-import { User, Quiz, QuizResult, UserRole, Message, Lesson, Announcement, SchoolStructure, PartnerRequest, WhiteboardSession, Stroke, WhiteboardMessage, IoTDevice, IoTDeviceType } from '../types';
+import { User, Quiz, QuizResult, UserRole, Message, Lesson, Announcement, SchoolStructure, PartnerRequest, WhiteboardSession, Stroke, WhiteboardMessage, IoTDevice, IoTDeviceType, SchoolEvent, LessonActivity } from '../types';
 
 const KEYS = {
   USERS: 'quizmaster_users',
@@ -13,6 +12,8 @@ const KEYS = {
   PARTNER_REQUESTS: 'quizmaster_partner_requests',
   WHITEBOARDS: 'quizmaster_whiteboards',
   IOT_DEVICES: 'quizmaster_iot_devices',
+  EVENTS: 'quizmaster_events',
+  LESSON_ACTIVITY: 'quizmaster_lesson_activity', // New Key
 };
 
 // --- INITIALIZATION ---
@@ -28,6 +29,8 @@ const init = () => {
     [KEYS.PARTNER_REQUESTS]: [],
     [KEYS.WHITEBOARDS]: [],
     [KEYS.IOT_DEVICES]: [],
+    [KEYS.EVENTS]: [],
+    [KEYS.LESSON_ACTIVITY]: [],
   };
 
   Object.keys(defaults).forEach(key => {
@@ -317,6 +320,20 @@ export const StorageService = {
       localStorage.setItem(KEYS.LESSONS, JSON.stringify(lessons));
   },
 
+  completeLesson: (lessonId: string, studentId: string) => {
+      const lessons = StorageService.getLessons();
+      const index = lessons.findIndex(l => l.id === lessonId);
+      if (index >= 0) {
+          const lesson = lessons[index];
+          const completedBy = lesson.completedBy || [];
+          if (!completedBy.includes(studentId)) {
+              lesson.completedBy = [...completedBy, studentId];
+              lessons[index] = lesson;
+              localStorage.setItem(KEYS.LESSONS, JSON.stringify(lessons));
+          }
+      }
+  },
+
   deleteLesson: (id: string) => {
       const lessons = StorageService.getLessons().filter(l => l.id !== id);
       localStorage.setItem(KEYS.LESSONS, JSON.stringify(lessons));
@@ -333,9 +350,13 @@ export const StorageService = {
 
       if (validClasses.size === 0) return [];
       
+      const now = new Date().toISOString();
+
       const lessons = StorageService.getLessons().filter(l => 
           l.status === 'PUBLISHED' && 
-          l.assignedClasses.some(ac => validClasses.has(ac))
+          l.assignedClasses.some(ac => validClasses.has(ac)) &&
+          (!l.availableFrom || l.availableFrom <= now) &&
+          (!l.availableUntil || l.availableUntil >= now)
       );
 
       const users = StorageService.getUsers();
@@ -344,6 +365,75 @@ export const StorageService = {
           const prof = profsMap.get(l.professorId);
           return !(student.school && prof && (prof.school !== student.school || prof.city !== student.city));
       });
+  },
+
+  // --- REAL TIME LESSON ACTIVITY (Heartbeat) ---
+  
+  updateLessonActivity: (lessonId: string, studentId: string) => {
+      const activities: LessonActivity[] = JSON.parse(localStorage.getItem(KEYS.LESSON_ACTIVITY) || '[]');
+      const now = Date.now();
+      
+      // Remove old activity for this specific user on this lesson
+      const filtered = activities.filter(a => !(a.lessonId === lessonId && a.studentId === studentId));
+      
+      // Add new activity
+      filtered.push({ lessonId, studentId, timestamp: now });
+      
+      // Optional: Cleanup very old activities (e.g. > 1 hour) to keep storage clean
+      const cleaned = filtered.filter(a => now - a.timestamp < 3600000);
+      
+      localStorage.setItem(KEYS.LESSON_ACTIVITY, JSON.stringify(cleaned));
+  },
+
+  getActiveStudentCount: (lessonId: string): number => {
+      const activities: LessonActivity[] = JSON.parse(localStorage.getItem(KEYS.LESSON_ACTIVITY) || '[]');
+      const now = Date.now();
+      const ACTIVE_THRESHOLD_MS = 30000; // 30 seconds to be considered "online"
+
+      // Filter activities for this lesson that are recent
+      const activeUsers = activities.filter(a => 
+          a.lessonId === lessonId && 
+          (now - a.timestamp) < ACTIVE_THRESHOLD_MS
+      );
+
+      // Count unique student IDs
+      const uniqueStudents = new Set(activeUsers.map(a => a.studentId));
+      return uniqueStudents.size;
+  },
+
+  // --- 4.1 EVENTS & SCHEDULE ---
+  
+  getEvents: (): SchoolEvent[] => JSON.parse(localStorage.getItem(KEYS.EVENTS) || '[]'),
+
+  saveEvent: (event: SchoolEvent) => {
+      const events = StorageService.getEvents();
+      const idx = events.findIndex(e => e.id === event.id);
+      if (idx >= 0) events[idx] = event;
+      else events.push(event);
+      localStorage.setItem(KEYS.EVENTS, JSON.stringify(events));
+  },
+
+  deleteEvent: (id: string) => {
+      const events = StorageService.getEvents().filter(e => e.id !== id);
+      localStorage.setItem(KEYS.EVENTS, JSON.stringify(events));
+  },
+
+  getEventsByProf: (profId: string): SchoolEvent[] => {
+      return StorageService.getEvents().filter(e => e.professorId === profId);
+  },
+
+  getEventsForStudent: (student: User): SchoolEvent[] => {
+      const validClasses = new Set<string>();
+      if (student.class) validClasses.add(student.class);
+      if (student.enrolledClasses) student.enrolledClasses.forEach(c => validClasses.add(c));
+
+      if (validClasses.size === 0) return [];
+
+      const events = StorageService.getEvents().filter(e => 
+          e.assignedClasses.some(ac => validClasses.has(ac))
+      );
+      
+      return events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   },
 
   // --- 5. RESULTS & ANALYTICS ---

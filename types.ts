@@ -13,6 +13,7 @@ export interface User {
   id: string;
   username: string; // generated ID
   password?: string;
+  readablePassword?: string; // New: For Admin visualization
   name: string;
   role: UserRole;
   class?: string; // Primary class (legacy/display)
@@ -109,7 +110,19 @@ export interface Message {
 
 export enum LessonType {
     VIDEO = 'VIDEO',
-    DOCUMENT = 'DOCUMENT'
+    DOCUMENT = 'DOCUMENT',
+    INTERACTIVE = 'INTERACTIVE' // New creative type
+}
+
+export interface TreasureCode {
+    code: string;
+    badgeId: string; // e.g., 'badge_detective', 'badge_scientist'
+}
+
+export interface LessonActivity {
+    lessonId: string;
+    studentId: string;
+    timestamp: number; // Date.now()
 }
 
 export interface Lesson {
@@ -122,6 +135,27 @@ export interface Lesson {
     contentUrl: string; 
     createdAt: string;
     status: 'DRAFT' | 'PUBLISHED'; 
+    minTimeSeconds?: number; // Minimum time required to read
+    hasTreasureHunt?: boolean; // Toggle for gamification
+    treasureCodes?: TreasureCode[]; // For Gamification/Treasure Hunt
+    questions?: Question[]; // Optional validation questions
+    
+    // Scheduling & Completion
+    availableFrom?: string; // ISO Date
+    availableUntil?: string; // ISO Date
+    completedBy?: string[]; // List of Student IDs who completed this lesson
+}
+
+export interface SchoolEvent {
+    id: string;
+    professorId: string;
+    professorName: string; // Added for display
+    title: string;
+    date: string; // ISO String
+    type: 'EXAM' | 'TEST' | 'HOMEWORK' | 'OTHER';
+    assignedClasses: string[];
+    description?: string;
+    createdAt: string;
 }
 
 export interface Announcement {

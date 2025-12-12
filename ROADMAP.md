@@ -1,101 +1,61 @@
 
-# 🏛️ Tinmel - LMS Open Source Marocain 🇲🇦
+# 🗺️ Roadmap Technique - Tinmel LMS
 
-![License](https://img.shields.io/badge/License-MIT-green.svg)
-![React](https://img.shields.io/badge/React-18-blue)
-![Vite](https://img.shields.io/badge/Vite-5.0-purple)
-![Gemini AI](https://img.shields.io/badge/AI-Google%20Gemini-orange)
-![Status](https://img.shields.io/badge/Status-Beta-yellow)
+Ce document trace la route entre le prototype actuel (PoC) et une version de production robuste.
 
-> **Tinmel** (تينمل) est une plateforme de gestion de l'apprentissage (LMS) nouvelle génération, conçue pour les écoles. Elle intègre l'Intelligence Artificielle pour automatiser la création de contenu pédagogique et la correction.
+## ✨ Fonctionnalités Récemment Ajoutées (Q1 2025)
 
-🌐 **Site du Projet :** [Découvrir le projet](https://sites.google.com/view/tinmel-project/home)
+- [x] **Modules Interactifs** : Quiz de validation intégrés à la fin des leçons (timers, score minimum).
+- [x] **Planification** : Programmation de la disponibilité des cours (Date de début / fin).
+- [x] **Monitoring** : Compteur d'élèves en direct sur les cours (Heartbeat system).
+- [x] **Suivi** : Marquage automatique des leçons comme "Terminées" dans le tableau de bord étudiant.
 
-## 📖 Pourquoi Tinmel ?
-Le nom **"Tinmel"** puise son inspiration dans le berceau historique de la dynastie Almohade. Tout comme la **Mosquée de Tinmel** fut un centre de savoir, cette plateforme aspire à devenir un pilier numérique souverain pour l'éducation moderne.
+## 🔴 Priorité Haute : Architecture & Sécurité (Q2 2025)
 
-Ce projet est une réponse "Proof of Concept" (PoC) pour démontrer qu'un LMS puissant, intégrant l'IA générative, peut être construit avec des technologies web modernes et légères.
+L'objectif est de sécuriser l'application et de sortir de la dépendance au `localStorage`.
 
-## ✨ Fonctionnalités Clés
+- [ ] **Routing Professionnel**
+    - [x] Implémentation History API (Fait).
+    - [ ] Migration vers `react-router-dom` v6 pour une gestion native des routes imbriquées et des loaders.
+    - [x] Protection des routes (`AuthGuard`) coté client.
 
-### 🧠 Intelligence Artificielle (Gemini 2.5)
-*   **Génération de Quiz Avancée :** Création automatique de tout genre de quiz à partir d'un simple sujet (QCM, Vrai/Faux, Questions ouvertes, Appariement, QCM Image).
-*   **Correction Assistée :** Analyse sémantique des réponses courtes et des essais par l'IA pour un gain de temps précieux.
+- [ ] **Backend First (Sécurité)**
+    - [x] Déplacer la logique de validation des Quiz du Frontend vers le Backend (Node.js).
+    - [x] Remplacer le stockage de Token dans `localStorage` par des **Cookies HttpOnly** (protection XSS).
+    - [x] Hashage des mots de passe coté serveur (Bcrypt) obligatoire.
 
-### 🏫 Gestion Scolaire
-*   **Architecture Multi-Niveaux :**
-    *   🛡️ **Admin :** Gestion globale, facturation, déploiement.
-    *   👔 **Coordinateur :** Gestion des emplois du temps, des classes et du corps professoral.
-    *   🎓 **Professeur :** Création de cours, quiz, suivi des résultats.
-    *   🎒 **Élève :** Interface gamifiée (XP, Badges), passage de quiz, messagerie.
+- [ ] **Gestion des Fichiers**
+    - [x] Remplacer le stockage d'images Base64 (lourd pour la BDD) par un système d'upload de fichiers.
+    - [x] Intégration de `Multer` (Node.js) et stockage local ou S3.
 
-### 🛡️ Sécurité & Confidentialité
-*   **Séparation des Portails :** Accès Admin (`/tinmelad`) isolé de l'accès public.
-*   **Détection de Décrochage :** Algorithme identifiant les élèves à risque (absentéisme + baisse de résultats).
+## 🟡 Priorité Moyenne : Performance & Scalabilité (Q3 2025)
 
-## 🛠️ Stack Technique
+Préparer l'application pour supporter 2000+ élèves simultanés.
 
-*   **Frontend :** React 18, TypeScript, Tailwind CSS, Lucide Icons.
-*   **Build Tool :** Vite.
-*   **Backend (Hybride) :** 
-    *   *Mode Démo :* `LocalStorage` pour une persistance immédiate sans serveur.
-    *   *Mode Prod :* Node.js (Express) + SQLite (Migration en cours vers PostgreSQL).
-*   **AI :** Google Generative AI SDK (`@google/genai`).
+- [ ] **Optimisation des Données**
+    - [x] Implémenter la **Pagination** coté serveur pour les listes d'élèves et de résultats.
+    - [ ] Mettre en place `TanStack Query` (React Query) pour le cache et la gestion des états serveur.
 
-## 🚀 Installation (Développeur)
+- [ ] **Temps Réel**
+    - [ ] Remplacer le "polling" actuel (Heartbeat toutes les 10s) par des **WebSockets** (Socket.io) pour réduire la charge serveur.
+    - [ ] Chat en direct et Notifications instantanées.
 
-### Prérequis
-*   Node.js (v18+)
-*   Une clé API Google Gemini (Gratuite sur [Google AI Studio](https://aistudio.google.com/))
+## 🟢 Priorité Basse : Fonctionnalités & UX (Q4 2025)
 
-### Démarrage Rapide (Mode Développement)
-Utilisez cette commande pour coder. Le serveur redémarre à chaque modification.
+- [ ] **Offline First (PWA)**
+    - [ ] Rendre l'application installable sur mobile.
+    - [ ] Permettre le passage de quiz sans connexion internet (synchronisation au retour du réseau).
 
-```bash
-# 1. Cloner le dépôt
-git clone https://github.com/LahcenOub/tinmel-lms.git
-cd tinmel-lms
+- [ ] **Localisation**
+    - [ ] Traduction complète de l'interface en **Amazigh (Tifinagh)**.
+    - [ ] Support des dates hégiriennes.
 
-# 2. Installer les dépendances
-npm install
+## 💡 Idées Communautaires (Backlog)
 
-# 3. Configurer l'environnement
-# Créez un fichier .env à la racine et ajoutez :
-# REACT_APP_GEMINI_API_KEY=votre_cle_api
-
-# 4. Lancer (Frontend + Backend en parallèle)
-npm run dev
-```
-
-Ouvrez **http://localhost:3000**.
-*   **Admin par défaut :** `admin` / `password123`
-
-### Tester le Build de Production
-Pour simuler l'environnement de production (fichiers minifiés servis par Express) :
-
-```bash
-# 1. Compiler le React (crée le dossier /dist)
-npm run build
-
-# 2. Lancer le serveur Node uniquement
-npm start
-```
-L'application sera accessible sur **http://localhost:3001**.
-
-## 🤝 Contribution & Hacktoberfest
-
-Nous cherchons activement des contributeurs pour passer du prototype à la production !
-
-**Domaines prioritaires :**
-1.  **Backend :** Sécurisation complète de l'API Node.js et JWT HttpOnly.
-2.  **Performance :** Implémentation de la pagination serveur et virtualisation des listes.
-3.  **Features :** Support de la langue Amazigh (Tifinagh).
-
-Consultez le [ROADMAP.md](./ROADMAP.md) pour voir les tâches disponibles.
-
-## 📄 Licence
-
-Distribué sous la licence **MIT**. Voir `LICENSE` pour plus d'informations.
+*   *Ajout d'un rôle "Parent" pour le suivi des notes.*
+*   *Intégration de Jitsi Meet pour les classes virtuelles.*
+*   *Export des bulletins de notes au format PDF officiel.*
 
 ---
-*Construit avec ❤️ au Maroc.*
+**Envie de contribuer ?**
+Choisissez une tâche, forkez le projet et proposez une Pull Request ! Utilisez le tag `hacktoberfest` si applicable.

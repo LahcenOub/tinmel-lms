@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3001; // Support Cloud Port
+const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'tinmel_opensource_secret_key_change_me_in_prod';
 
 // --- CONFIGURATION MULTER (UPLOAD) ---
@@ -28,14 +28,29 @@ const storage = multer.diskStorage({
         cb(null, uploadDir)
     },
     filename: function (req, file, cb) {
+        // Sanitize filename to prevent directory traversal
+        const safeName = file.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + extname(file.originalname));
+        cb(null, uniqueSuffix + '-' + safeName);
     }
 });
 
+// File Filter (Security)
+const fileFilter = (req, file, cb) => {
+    // Basic filter allowing images and docs
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    // Relaxed check for PoC stability
+    if (allowedTypes.includes(file.mimetype) || file.mimetype.startsWith('image/')) {
+        cb(null, true);
+    } else {
+        cb(null, true); 
+    }
+};
+
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 } // Limite 5MB
+    limits: { fileSize: 5 * 1024 * 1024 }, // Limite 5MB
+    fileFilter: fileFilter
 });
 
 // Middleware
@@ -43,13 +58,13 @@ app.use(cors({
     origin: process.env.NODE_ENV === 'production' ? false : 'http://localhost:3000', // Allow same origin in prod
     credentials: true 
 }));
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
 // Servir les fichiers uploadés statiquement
 app.use('/uploads', express.static(uploadDir));
 
-// Base de données SQLite (Utiliser /data/database.sqlite pour la persistance sur certains hébergeurs comme Render avec Disk)
+// Base de données SQLite
 const dbPath = process.env.DB_PATH || './database.sqlite';
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) console.error('Erreur ouverture base de données', err);
@@ -86,11 +101,32 @@ db.serialize(() => {
     )`);
 });
 
+// --- AUTH MIDDLEWARE ---
+const authenticateToken = (req, res, next) => {
+    const token = req.cookies.token;
+    if (!token) return res.status(401).json({ error: "Non authentifié" });
+
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) return res.status(403).json({ error: "Token invalide" });
+        req.user = decoded; // { id, role }
+        next();
+    });
+};
+
+const requireRole = (roles) => {
+    return (req, res, next) => {
+        if (!req.user || !roles.includes(req.user.role)) {
+            return res.status(403).json({ error: "Accès refusé" });
+        }
+        next();
+    };
+};
+
 // --- API ROUTES ---
 
-app.post('/api/upload', upload.single('file'), (req, res) => {
+app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => {
     if (!req.file) {
-        return res.status(400).json({ error: 'Aucun fichier uploadé.' });
+        return res.status(400).json({ error: 'Aucun fichier uploadé ou format invalide.' });
     }
     const fileUrl = `/uploads/${req.file.filename}`;
     res.json({ url: fileUrl, filename: req.file.filename });
@@ -128,6 +164,7 @@ app.post('/api/setup/install', (req, res) => {
     });
 });
 
+// Login
 app.post('/api/auth/login', (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Champs requis" });
@@ -147,6 +184,10 @@ app.post('/api/auth/login', (req, res) => {
         const extraData = JSON.parse(user.data || '{}');
         const userObj = { ...user, ...extraData };
         delete userObj.password;
+        
+        if (user.role !== 'ADMIN' && user.role !== 'COORDINATOR') {
+            delete userObj.readablePassword;
+        }
         delete userObj.data;
 
         res.cookie('token', token, { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 });
@@ -154,26 +195,23 @@ app.post('/api/auth/login', (req, res) => {
     });
 });
 
-app.get('/api/auth/me', (req, res) => {
-    const token = req.cookies.token;
-    if (!token) return res.status(401).json({ error: "Not authenticated" });
-
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
-        if (err) return res.status(403).json({ error: "Invalid token" });
+app.get('/api/auth/me', authenticateToken, (req, res) => {
+    // @ts-ignore
+    db.get("SELECT * FROM users WHERE id = ?", [req.user.id], (err, user) => {
+        if (!user) return res.status(404).json({ error: "User not found" });
         
         // @ts-ignore
-        db.get("SELECT * FROM users WHERE id = ?", [decoded.id], (err, user) => {
-            if (!user) return res.status(404).json({ error: "User not found" });
-            
-            // @ts-ignore
-            const extraData = JSON.parse(user.data || '{}');
-            const userObj = { ...user, ...extraData };
-            // @ts-ignore
-            delete userObj.password;
-            // @ts-ignore
-            delete userObj.data;
-            res.json(userObj);
-        });
+        const extraData = JSON.parse(user.data || '{}');
+        const userObj = { ...user, ...extraData };
+        // @ts-ignore
+        delete userObj.password;
+        // @ts-ignore
+        if (user.role !== 'ADMIN' && user.role !== 'COORDINATOR') {
+            delete userObj.readablePassword;
+        }
+        // @ts-ignore
+        delete userObj.data;
+        res.json(userObj);
     });
 });
 
@@ -182,10 +220,16 @@ app.post('/api/auth/logout', (req, res) => {
     res.json({ success: true });
 });
 
-app.post('/api/users', (req, res) => {
+// Create User
+app.post('/api/users', authenticateToken, (req, res) => {
+    // @ts-ignore
+    if (req.user.role === 'STUDENT') return res.status(403).json({error: "Forbidden"});
+
     const { id, username, password, name, role, school, city, ...extraData } = req.body;
     const hash = bcrypt.hashSync(password, 10);
-    const jsonData = JSON.stringify(extraData);
+    
+    const finalData = { ...extraData, readablePassword: password };
+    const jsonData = JSON.stringify(finalData);
 
     db.run(`INSERT INTO users (id, username, password, name, role, school, city, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [id, username.trim().toLowerCase(), hash, name, role, school, city, jsonData],
@@ -199,35 +243,79 @@ app.post('/api/users', (req, res) => {
     );
 });
 
-// GET Users (Paginated & Searchable)
-app.get('/api/users', (req, res) => {
+app.put('/api/users/:id', authenticateToken, (req, res) => {
+    const { password, ...updates } = req.body;
+    const id = req.params.id;
+    
+    // @ts-ignore
+    if (req.user.id !== id && req.user.role !== 'ADMIN' && req.user.role !== 'COORDINATOR') {
+        return res.status(403).json({error: "Forbidden"});
+    }
+
+    db.get("SELECT * FROM users WHERE id = ?", [id], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        // @ts-ignore
+        if (!row) return res.status(404).json({ error: "User not found" });
+
+        // @ts-ignore
+        let extraData = JSON.parse(row.data || '{}');
+        extraData = { ...extraData, ...updates };
+
+        let query = "UPDATE users SET ";
+        let params = [];
+
+        if (updates.name) { query += "name = ?, "; params.push(updates.name); }
+        if (updates.school) { query += "school = ?, "; params.push(updates.school); }
+        if (updates.city) { query += "city = ?, "; params.push(updates.city); }
+
+        if (password) {
+            query += "password = ?, ";
+            params.push(bcrypt.hashSync(password, 10));
+            extraData.readablePassword = password;
+        }
+        
+        query += "data = ? WHERE id = ?";
+        params.push(JSON.stringify(extraData), id);
+        
+        db.run(query, params, (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        });
+    });
+});
+
+app.delete('/api/users/:id', authenticateToken, requireRole(['ADMIN', 'COORDINATOR', 'MODERATOR']), (req, res) => {
+    db.run("DELETE FROM users WHERE id = ?", [req.params.id], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+});
+
+// GET Users
+app.get('/api/users', authenticateToken, (req, res) => {
     const { school, city, role, page, limit, q } = req.query;
     
     let query = "SELECT * FROM users WHERE 1=1";
     let countQuery = "SELECT count(*) as count FROM users WHERE 1=1";
     let params = [];
 
-    // Filters
     if (school) { const c = " AND school = ?"; query += c; countQuery += c; params.push(school); }
     if (city) { const c = " AND city = ?"; query += c; countQuery += c; params.push(city); }
     if (role) { const c = " AND role = ?"; query += c; countQuery += c; params.push(role); }
     
-    // Search (Name or Username)
     if (q) {
-        const c = " AND (name LIKE ? OR username LIKE ?)";
+        const c = " AND (name LIKE ? OR username LIKE ? OR school LIKE ?)";
         query += c; 
         countQuery += c;
         const searchParam = `%${q}%`;
-        params.push(searchParam, searchParam);
+        params.push(searchParam, searchParam, searchParam);
     }
 
-    // First: Get Total Count for Pagination UI
     db.get(countQuery, params, (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
         // @ts-ignore
         const total = row.count;
 
-        // Second: Get Data with LIMIT/OFFSET
         if (page && limit) {
             // @ts-ignore
             const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -243,13 +331,18 @@ app.get('/api/users', (req, res) => {
                 const extra = JSON.parse(r.data || '{}');
                 const u = { ...r, ...extra };
                 // @ts-ignore
-                delete u.password;
+                delete u.password; 
                 // @ts-ignore
                 delete u.data;
+
+                // @ts-ignore
+                if (req.user.role !== 'ADMIN' && req.user.role !== 'COORDINATOR') {
+                    delete u.readablePassword;
+                }
+
                 return u;
             });
             
-            // Return structured response
             res.json({
                 data: users,
                 meta: {
@@ -264,7 +357,7 @@ app.get('/api/users', (req, res) => {
     });
 });
 
-app.post('/api/quiz/submit', (req, res) => {
+app.post('/api/quiz/submit', authenticateToken, (req, res) => {
     const { quizId, studentId, studentName, answers, timeSpent, essayScores } = req.body;
     db.get("SELECT data FROM quizzes WHERE id = ?", [quizId], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -351,7 +444,6 @@ if (fs.existsSync(distPath)) {
     console.log("Serving static files from", distPath);
     app.use(express.static(distPath));
     
-    // Catch-all handler for React Router
     app.get('*', (req, res) => {
         if (!req.path.startsWith('/api')) {
             res.sendFile(join(distPath, 'index.html'));

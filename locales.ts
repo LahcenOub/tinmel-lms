@@ -73,6 +73,10 @@ export const translations = {
     badge_perfect_score: "Perfectionniste",
     badge_speedster: "L'Éclair",
     badge_scholar: "Savant",
+    badge_detective: "Détective",
+    badge_explorer: "Explorateur",
+    badge_genius: "Génie",
+    badgeAlreadyOwned: "Vous possédez déjà ce badge !",
     
     // Auth
     studentSpace: "Espace Étudiant",
@@ -331,6 +335,8 @@ export const translations = {
     fileUpload: "Fichier",
     viewContent: "Voir",
     noCourses: "Aucun cours.",
+    treasureHuntTitle: "Chasse au Trésor (Gamification)",
+    treasureHuntDesc: "Cachez des codes dans votre PDF. Les élèves qui les trouvent débloqueront des badges !",
     
     // Quiz Taker & Dashboard
     start: "Commencer",
@@ -445,6 +451,10 @@ export const translations = {
     badge_perfect_score: "الكمال",
     badge_speedster: "البرق",
     badge_scholar: "العالم",
+    badge_detective: "محقق",
+    badge_explorer: "مستكشف",
+    badge_genius: "عبقري",
+    badgeAlreadyOwned: "لديك هذا الوسام بالفعل!",
     
     // Auth
     studentSpace: "فضاء الطالب",
@@ -703,6 +713,8 @@ export const translations = {
     fileUpload: "ملف",
     viewContent: "عرض",
     noCourses: "لا يوجد.",
+    treasureHuntTitle: "لعبة الكنز (تحفيز)",
+    treasureHuntDesc: "قم بإخفاء رموز داخل ملف PDF. سيحصل الطلاب الذين يجدونها على أوسمة!",
     
     // Quiz Taker & Dashboard
     start: "بدء",

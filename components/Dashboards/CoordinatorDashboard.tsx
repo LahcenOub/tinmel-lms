@@ -1,222 +1,494 @@
-
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { User, UserRole, Message, IoTDevice } from '../../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { User, UserRole, SchoolStructure, IoTDevice, Message } from '../../types';
 import { StorageService } from '../../services/storageService';
-import { LogOut, Users, School, Settings, Upload, FileDown, CheckSquare, BarChart, UserPlus, Eye, EyeOff, X, MessageCircle, Send, AlertTriangle, Calendar, Activity, Thermometer, Wind, Bus, ScanBarcode, Plus, Wifi, WifiOff, MapPin, Radio } from 'lucide-react';
+import { ApiService } from '../../services/apiService';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { 
+    LayoutDashboard, Users, GraduationCap, Building, Activity, LogOut, 
+    Plus, Save, Trash2, Search, Upload, Download, Smartphone, Wifi, 
+    MapPin, Thermometer, Wind, AlertTriangle, FileSpreadsheet, ChevronRight, X, UserPlus, Eye, EyeOff, Settings, BookOpen, MessageCircle, Send, FileText
+} from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-interface Props {
-  user: User;
-  onLogout: () => void;
-}
+// --- HEADER BACKGROUND COMPONENT ---
+const HeaderBackground = () => {
+    const elements = useMemo(() => {
+        const items = [];
+        const chars = [
+            'ا', 'ب', 'ح', 'د', 'ر', 'س', 'ص', 'ط', 'ع', 'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'و', 'ي',
+            'أ', 'إ', 'آ', 'ة', 'ث', 'ج', 'خ', 'ذ', 'ز', 'ش', 'ض', 'ظ', 'غ', 'ف',
+            'ⴰ', 'ⴱ', 'ⴳ', 'ⴷ', 'ⴹ', 'ⴻ', 'ⴼ', 'ⴽ', 'ⵀ', 'ⵃ', 'ⵄ', 'ⵅ', 'ⵇ', 'ⵉ', 'ⵊ', 'ⵍ', 'ⵎ', 'ⵏ', 'ⵓ', 'ⵔ', 'ⵕ', 'ⵖ', 'ⵙ', 'ⵚ', 'ⵛ', 'ⵜ', 'ⵟ', 'ⵡ', 'ⵢ', 'ⵣ', 'ⵥ',
+            'Tinmel', 'Education', 'Savoir', 'المعرفة', 'A', 'B', 'C', '1', '2', '3', '∑', '∫', 'π'
+        ];
 
-// --- SUB-COMPONENTS (VIEWS) ---
-
-const StructureView: React.FC<{ user: User }> = ({ user }) => {
-    const { t } = useLanguage();
-    const [officialClasses, setOfficialClasses] = useState<string[]>([]);
-    const [newClassName, setNewClassName] = useState('');
-
-    useEffect(() => {
-        if (user.school && user.city) {
-            const struct = StorageService.getSchoolStructure(user.school, user.city);
-            if (struct) setOfficialClasses(struct.classes);
+        for (let i = 0; i < 35; i++) {
+            items.push({
+                char: chars[Math.floor(Math.random() * chars.length)],
+                top: Math.random() * 100,
+                left: Math.random() * 100,
+                size: Math.random() * 2 + 1, // 1rem to 3rem
+                duration: Math.random() * 30 + 20,
+                delay: Math.random() * 20,
+                initialRotate: Math.random() * 360,
+                opacity: Math.random() * 0.15 + 0.05, // 5% to 20% opacity
+                font: Math.random() > 0.5 ? 'Amiri' : 'sans-serif' 
+            });
         }
-    }, [user]);
-
-    const handleAddClass = () => {
-        if (!newClassName.trim()) return;
-        if (officialClasses.includes(newClassName.trim())) {
-            alert(t('classExists'));
-            return;
-        }
-        const updated = [...officialClasses, newClassName.trim()].sort();
-        setOfficialClasses(updated);
-        StorageService.saveSchoolStructure({
-            id: `${user.school}-${user.city}`,
-            school: user.school!,
-            city: user.city!,
-            classes: updated
-        });
-        setNewClassName('');
-    };
+        return items;
+    }, []);
 
     return (
-        <div className="bg-white p-6 rounded shadow animate-fade-in">
-            <h2 className="text-xl font-bold mb-4">{t('officialClasses')}</h2>
-            <div className="flex gap-2 mb-6">
-                <input className="border rounded p-2" placeholder="Ex: 1APIC-1" value={newClassName} onChange={e => setNewClassName(e.target.value)} />
-                <button onClick={handleAddClass} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">{t('addClass')}</button>
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+            <style>{`
+                @keyframes swimHeader {
+                    0% { transform: translate(0, 0) rotate(0deg); }
+                    33% { transform: translate(25px, -15px) rotate(4deg); }
+                    66% { transform: translate(-15px, 15px) rotate(-4deg); }
+                    100% { transform: translate(0, 0) rotate(0deg); }
+                }
+            `}</style>
+            {elements.map((el, i) => (
+                <div key={i} style={{
+                    position: 'absolute',
+                    top: `${el.top}%`,
+                    left: `${el.left}%`,
+                    fontSize: `${el.size}rem`,
+                    fontFamily: el.font === 'Amiri' ? '"Amiri", serif' : 'sans-serif',
+                    color: `rgba(79, 70, 229, ${el.opacity})`, // Indigo-600 for Coordinator
+                    zIndex: 0,
+                    lineHeight: 1,
+                    whiteSpace: 'nowrap',
+                    filter: 'blur(0.5px)',
+                    animation: `swimHeader ${el.duration}s ease-in-out infinite -${el.delay}s`
+                }}>
+                    <div style={{ transform: `rotate(${el.initialRotate}deg)` }}>
+                        {el.char}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+// --- SUB-VIEWS ---
+
+const StatsView: React.FC<{ user: User }> = ({ user }) => {
+    const { t } = useLanguage();
+    const [stats, setStats] = useState({
+        profs: 0,
+        students: 0,
+        classes: 0,
+        quizzes: 0,
+        activeDevices: 0
+    });
+
+    useEffect(() => {
+        const loadStats = async () => {
+            const allUsers = await ApiService.getUsers();
+            const schoolProfs = allUsers.filter(u => u.role === UserRole.PROFESSOR && u.school === user.school && u.city === user.city);
+            const schoolStudents = allUsers.filter(u => u.role === UserRole.STUDENT && u.school === user.school && u.city === user.city);
+            
+            const structure = StorageService.getSchoolStructure(user.school!, user.city!);
+            const devices = StorageService.getIoTDevices(user.school!, user.city!);
+            
+            // Count quizzes created by professors of this school
+            const allQuizzes = StorageService.getQuizzes();
+            const profIds = new Set(schoolProfs.map(p => p.id));
+            const schoolQuizzes = allQuizzes.filter(q => profIds.has(q.professorId));
+
+            setStats({
+                profs: schoolProfs.length,
+                students: schoolStudents.length,
+                classes: structure?.classes.length || 0,
+                quizzes: schoolQuizzes.length,
+                activeDevices: devices.filter(d => d.status === 'ONLINE').length
+            });
+        };
+        loadStats();
+    }, [user]);
+
+    return (
+        <div className="space-y-8 animate-fade-in">
+            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <Activity className="w-6 h-6 text-indigo-600"/> {t('schoolStats')}
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition">
+                    <div className="bg-blue-100 p-4 rounded-full text-blue-600">
+                        <Users className="w-8 h-8"/>
+                    </div>
+                    <div>
+                        <p className="text-gray-500 text-sm font-medium">{t('totalProfs')}</p>
+                        <h3 className="text-3xl font-bold text-gray-800">{stats.profs}</h3>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition">
+                    <div className="bg-green-100 p-4 rounded-full text-green-600">
+                        <GraduationCap className="w-8 h-8"/>
+                    </div>
+                    <div>
+                        <p className="text-gray-500 text-sm font-medium">{t('totalStudents')}</p>
+                        <h3 className="text-3xl font-bold text-gray-800">{stats.students}</h3>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition">
+                    <div className="bg-purple-100 p-4 rounded-full text-purple-600">
+                        <Building className="w-8 h-8"/>
+                    </div>
+                    <div>
+                        <p className="text-gray-500 text-sm font-medium">{t('activeClasses')}</p>
+                        <h3 className="text-3xl font-bold text-gray-800">{stats.classes}</h3>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition">
+                    <div className="bg-orange-100 p-4 rounded-full text-orange-600">
+                        <FileText className="w-8 h-8"/>
+                    </div>
+                    <div>
+                        <p className="text-gray-500 text-sm font-medium">{t('totalQuizzes')}</p>
+                        <h3 className="text-3xl font-bold text-gray-800">{stats.quizzes}</h3>
+                    </div>
+                </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {officialClasses.map(c => (
-                    <div key={c} className="p-2 bg-gray-50 border rounded text-center font-mono">{c}</div>
-                ))}
-                {officialClasses.length === 0 && <p className="text-gray-400 italic col-span-full">{t('noClassesFound')}</p>}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
+                        <Wifi className="w-5 h-5 text-indigo-500"/> État du Smart Campus
+                    </h3>
+                    <div className="flex items-center justify-between bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                        <span className="text-indigo-800 font-medium">Appareils Connectés</span>
+                        <span className="bg-white text-indigo-600 px-3 py-1 rounded-full font-bold shadow-sm">{stats.activeDevices}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-4 text-center">
+                        Données en temps réel fournies par les capteurs IoT installés dans l'établissement.
+                    </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-xl text-white shadow-lg flex flex-col justify-between relative overflow-hidden">
+                    <div className="relative z-10">
+                        <h3 className="font-bold text-xl mb-1">{user.school}</h3>
+                        <p className="text-indigo-200 text-sm mb-6">{user.city}</p>
+                        <div className="bg-white/10 backdrop-blur-sm p-3 rounded-lg inline-flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-green-300 animate-pulse"/>
+                            <span className="text-sm font-medium">Système Opérationnel</span>
+                        </div>
+                    </div>
+                    <div className="absolute -right-6 -bottom-6 opacity-10">
+                        <Building className="w-40 h-40"/>
+                    </div>
+                </div>
             </div>
         </div>
     );
 };
 
-const StaffView: React.FC<{ user: User }> = ({ user }) => {
+const StructureView: React.FC<{ user: User }> = ({ user }) => {
     const { t } = useLanguage();
-    const [schoolProfs, setSchoolProfs] = useState<User[]>([]);
-    const [newProfName, setNewProfName] = useState('');
-    const [newProfSubject, setNewProfSubject] = useState('');
-    const [showProfPasswords, setShowProfPasswords] = useState(false);
-    const [assigningProf, setAssigningProf] = useState<User | null>(null);
-    const [officialClasses, setOfficialClasses] = useState<string[]>([]);
+    const [structure, setStructure] = useState<SchoolStructure>({
+        id: '', school: user.school || '', city: user.city || '', classes: []
+    });
+    const [newClass, setNewClass] = useState('');
 
     useEffect(() => {
         if (user.school && user.city) {
-            refreshProfs();
-            const struct = StorageService.getSchoolStructure(user.school, user.city);
-            if (struct) setOfficialClasses(struct.classes);
+            const existing = StorageService.getSchoolStructure(user.school, user.city);
+            if (existing) setStructure(existing);
         }
     }, [user]);
 
-    const refreshProfs = () => {
-        const allUsers = StorageService.getUsers();
-        setSchoolProfs(allUsers.filter(u => u.role === UserRole.PROFESSOR && u.school === user.school && u.city === user.city));
+    const addClass = () => {
+        if (!newClass.trim()) return;
+        if (structure.classes.includes(newClass.trim())) {
+            alert(t('classExists'));
+            return;
+        }
+        const updated = { ...structure, classes: [...structure.classes, newClass.trim()] };
+        setStructure(updated);
+        StorageService.saveSchoolStructure(updated);
+        setNewClass('');
     };
 
-    const handleCreateProf = () => {
-        if(!newProfName.trim()) return;
+    const removeClass = (cls: string) => {
+        if(confirm(t('delete') + '?')) {
+            const updated = { ...structure, classes: structure.classes.filter(c => c !== cls) };
+            setStructure(updated);
+            StorageService.saveSchoolStructure(updated);
+        }
+    };
+
+    return (
+        <div className="space-y-6 animate-fade-in">
+            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <Building className="w-6 h-6 text-indigo-600"/> {t('manageStructure')}
+            </h2>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 className="font-bold text-lg mb-4 text-gray-700">{t('addClassToStructure')}</h3>
+                <div className="flex flex-col md:flex-row gap-2 mb-6">
+                    <input 
+                        className="flex-1 border p-3 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                        placeholder="Ex: 2ème Année Bac - A"
+                        value={newClass}
+                        onChange={e => setNewClass(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && addClass()}
+                    />
+                    <button onClick={addClass} className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition flex items-center gap-2 justify-center">
+                        <Plus className="w-5 h-5"/> {t('addClass')}
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {structure.classes.map(cls => (
+                        <div key={cls} className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex justify-between items-center group hover:bg-white hover:shadow-md transition-all">
+                            <span className="font-bold text-gray-800">{cls}</span>
+                            <button onClick={() => removeClass(cls)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1">
+                                <Trash2 className="w-4 h-4"/>
+                            </button>
+                        </div>
+                    ))}
+                    {structure.classes.length === 0 && (
+                        <div className="col-span-full text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                            <Building className="w-12 h-12 text-gray-300 mx-auto mb-2"/>
+                            <p className="text-gray-400 italic">Aucune classe configurée.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const StaffManagementView: React.FC<{ user: User }> = ({ user }) => {
+    const { t } = useLanguage();
+    const [profs, setProfs] = useState<User[]>([]);
+    const [structure, setStructure] = useState<SchoolStructure | undefined>(undefined);
+    const [selectedProf, setSelectedProf] = useState<User | null>(null);
+    
+    // Add Prof State
+    const [isAdding, setIsAdding] = useState(false);
+    const [newProfName, setNewProfName] = useState('');
+    const [newProfSubject, setNewProfSubject] = useState('');
+    const [showPasswords, setShowPasswords] = useState(false);
+
+    useEffect(() => {
+        if (user.school && user.city) {
+            setStructure(StorageService.getSchoolStructure(user.school, user.city));
+            loadProfs();
+        }
+    }, [user]);
+
+    const loadProfs = async () => {
+        // Use ApiService instead of StorageService to get the latest data from backend
+        // We filter by school AND city to ensure correct isolation
+        const allUsers = await ApiService.getUsers();
+        setProfs(allUsers.filter(u => u.role === UserRole.PROFESSOR && u.school === user.school && u.city === user.city));
+    };
+
+    const handleCreateProf = async () => {
+        if (!newProfName.trim()) return;
+        
         const cleanName = newProfName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
         const randomSuffix = Math.floor(Math.random() * 9000) + 1000;
         const username = `prof_${cleanName.substring(0, 8)}_${randomSuffix}`;
         const password = Math.floor(100000 + Math.random() * 900000).toString();
 
-        const newProf: User = {
+        const newUser: User = {
             id: `usr-${Date.now()}`,
             name: newProfName.trim(),
             username,
-            password,
+            password, // Saved hashed in backend
+            readablePassword: password,
             role: UserRole.PROFESSOR,
             school: user.school,
             city: user.city,
-            subject: newProfSubject,
-            accountType: 'ESTABLISHMENT',
-            assignedSections: []
+            subject: newProfSubject.trim() || 'Général',
+            accountType: 'ESTABLISHMENT'
         };
-        StorageService.saveUser(newProf);
-        refreshProfs();
+
+        await ApiService.createUser(newUser);
+        alert(`Professeur ajouté !\nID: ${username}\nMDP: ${password}\nMatière: ${newUser.subject}`);
         setNewProfName('');
         setNewProfSubject('');
-        alert(`${t('profsAdded')}\nID: ${username}\nPW: ${password}`);
+        setIsAdding(false);
+        loadProfs(); // Reload list from backend
     };
 
-    const handleToggleClassAssignment = (prof: User, cls: string) => {
-        const current = prof.assignedSections || [];
-        const updated = current.includes(cls) 
-          ? current.filter(c => c !== cls)
-          : [...current, cls];
-        
-        const updatedProf = { ...prof, assignedSections: updated };
-        StorageService.saveUser(updatedProf);
-        setAssigningProf(updatedProf); 
-        refreshProfs();
+    const handleDelete = async (id: string) => {
+        if(confirm(t('delete') + '?')) {
+            await ApiService.deleteUser(id);
+            loadProfs();
+        }
     };
 
-    const exportCredentials = () => {
-        const data = schoolProfs.map(p => ({
-            Name: p.name,
-            Subject: p.subject || '',
-            Username: p.username,
-            Password: p.password
+    const handleAssign = (profId: string, sections: string[]) => {
+        const prof = profs.find(p => p.id === profId);
+        if (prof) {
+            const updated = { ...prof, assignedSections: sections };
+            StorageService.saveUser(updated); // Sync local
+            ApiService.updateUser(profId, { assignedSections: sections }); // Sync API
+            setProfs(profs.map(p => p.id === profId ? updated : p));
+        }
+    };
+
+    const handleExportProfs = () => {
+        const data = profs.map(p => ({
+            "Nom Complet": p.name,
+            "Matière": p.subject || '-',
+            "Identifiant": p.username,
+            "Mot de passe": p.readablePassword || p.password || '******',
+            "Classes assignées": p.assignedSections?.join(', ') || ''
         }));
-        const ws = XLSX.utils.json_to_sheet(data);
+        
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Profs");
-        XLSX.writeFile(wb, `Credentials_${user.school}.xlsx`);
+        const ws = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, "Professeurs");
+        XLSX.writeFile(wb, `Professeurs_${user.school}.xlsx`);
     };
 
     return (
-        <div className="bg-white p-6 rounded shadow animate-fade-in">
-             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">{t('manageStaff')}</h2>
-                <button onClick={exportCredentials} className="text-blue-600 text-sm flex items-center gap-1 border p-2 rounded hover:bg-blue-50">
-                    <FileDown className="w-4 h-4"/> {t('exportCredentials')}
-                </button>
-             </div>
-             
-             <div className="flex gap-2 mb-6 bg-gray-50 p-4 rounded">
-                 <input className="border rounded p-2 text-sm flex-1" placeholder={t('profName')} value={newProfName} onChange={e => setNewProfName(e.target.value)} />
-                 <input className="border rounded p-2 text-sm flex-1" placeholder={t('subject')} value={newProfSubject} onChange={e => setNewProfSubject(e.target.value)} />
-                 <button onClick={handleCreateProf} className="bg-blue-600 text-white px-4 py-2 rounded text-sm flex items-center gap-2 hover:bg-blue-700 transition">
-                     <UserPlus className="w-4 h-4"/> {t('addProf')}
-                 </button>
-             </div>
+        <div className="space-y-6 animate-fade-in">
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <Users className="w-6 h-6 text-indigo-600"/> {t('manageStaff')}
+                </h2>
+                <div className="flex gap-2">
+                    <button onClick={handleExportProfs} className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-indigo-100 transition shadow-sm font-medium">
+                        <Download className="w-4 h-4"/> {t('exportExcel')}
+                    </button>
+                    <button onClick={() => setIsAdding(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-indigo-700 shadow-sm font-medium">
+                        <UserPlus className="w-4 h-4"/> {t('addProf')}
+                    </button>
+                </div>
+            </div>
 
-             <div className="overflow-auto">
+            {isAdding && (
+                <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex flex-col md:flex-row gap-2 animate-fade-in items-end md:items-center">
+                    <div className="flex-1 w-full space-y-1">
+                        <label className="text-xs font-bold text-indigo-800 ml-1">Nom Complet</label>
+                        <input 
+                            className="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="Ex: Ahmed Alami"
+                            value={newProfName}
+                            onChange={e => setNewProfName(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex-1 w-full space-y-1">
+                        <label className="text-xs font-bold text-indigo-800 ml-1">Matière</label>
+                        <input 
+                            className="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="Ex: Mathématiques, Arabe..."
+                            value={newProfSubject}
+                            onChange={e => setNewProfSubject(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex gap-2 mt-2 md:mt-0">
+                        <button onClick={handleCreateProf} className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 font-medium h-[38px]">{t('save')}</button>
+                        <button onClick={() => setIsAdding(false)} className="text-gray-500 px-4 py-2 text-sm hover:underline h-[38px]">{t('cancel')}</button>
+                    </div>
+                </div>
+            )}
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 border-b">
                         <tr>
-                            <th className="p-3">{t('profName')}</th>
-                            <th className="p-3">{t('subject')}</th>
-                            <th className="p-3">{t('username')}</th>
-                            <th className="p-3">
-                                <div className="flex items-center gap-2">
-                                    {t('password')}
-                                    <button onClick={() => setShowProfPasswords(!showProfPasswords)} className="text-gray-400 hover:text-gray-600">
-                                        {showProfPasswords ? <EyeOff className="w-3 h-3"/> : <Eye className="w-3 h-3"/>}
-                                    </button>
-                                </div>
+                            <th className="p-4 text-gray-600 font-semibold">{t('profName')}</th>
+                            <th className="p-4 text-gray-600 font-semibold">{t('subject')}</th>
+                            <th className="p-4 text-gray-600 font-semibold">{t('username')}</th>
+                            <th className="p-4 text-gray-600 font-semibold">
+                                <button onClick={() => setShowPasswords(!showPasswords)} className="flex items-center gap-1 hover:text-indigo-600">
+                                    {t('password')} {showPasswords ? <EyeOff className="w-3 h-3"/> : <Eye className="w-3 h-3"/>}
+                                </button>
                             </th>
-                            <th className="p-3">{t('assignedClassesToProf')}</th>
-                            <th className="p-3">{t('actions')}</th>
+                            <th className="p-4 text-gray-600 font-semibold">{t('assignedClassesToProf')}</th>
+                            <th className="p-4 text-end text-gray-600 font-semibold">{t('actions')}</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {schoolProfs.map(p => (
-                            <tr key={p.id} className="border-b hover:bg-gray-50">
-                                <td className="p-3 font-medium">{p.name}</td>
-                                <td className="p-3">{p.subject}</td>
-                                <td className="p-3 font-mono">{p.username}</td>
-                                <td className="p-3 font-mono text-gray-500">
-                                    {showProfPasswords ? (p.password || 'N/A') : '••••••'}
+                        {profs.map(p => (
+                            <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                                <td className="p-4 font-medium text-gray-800">{p.name}</td>
+                                <td className="p-4">
+                                    <span className="flex items-center gap-1 text-gray-600">
+                                        <BookOpen className="w-3 h-3 text-indigo-400"/> {p.subject || '-'}
+                                    </span>
                                 </td>
-                                <td className="p-3">
-                                    {p.assignedSections?.length 
-                                        ? <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-bold">{p.assignedSections.length} classes</span> 
-                                        : <span className="text-gray-400 italic text-xs">{t('noAssignedClasses')}</span>}
+                                <td className="p-4 font-mono text-gray-500">{p.username}</td>
+                                <td className="p-4 font-mono text-gray-500">{showPasswords ? (p.readablePassword || p.password) : '••••••'}</td>
+                                <td className="p-4">
+                                    {(p.assignedSections && p.assignedSections.length > 0) ? (
+                                        <div className="flex flex-wrap gap-1">
+                                            {p.assignedSections.map(s => <span key={s} className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium border border-blue-100">{s}</span>)}
+                                        </div>
+                                    ) : (
+                                        <span className="text-gray-400 italic text-xs flex items-center gap-1"><AlertTriangle className="w-3 h-3"/> {t('noAssignedClasses')}</span>
+                                    )}
                                 </td>
-                                <td className="p-3">
+                                <td className="p-4 text-end flex justify-end gap-2">
                                     <button 
-                                        onClick={() => setAssigningProf(p)}
-                                        className="text-blue-600 hover:underline flex items-center gap-1 hover:bg-blue-50 px-2 py-1 rounded transition"
+                                        onClick={() => setSelectedProf(p)} 
+                                        className="text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg text-xs font-bold transition border border-transparent hover:border-indigo-100"
                                     >
-                                        <CheckSquare className="w-4 h-4"/> {t('assignClasses')}
+                                        {t('assignClasses')}
+                                    </button>
+                                    <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded transition">
+                                        <Trash2 className="w-4 h-4"/>
                                     </button>
                                 </td>
                             </tr>
                         ))}
+                        {profs.length === 0 && (
+                            <tr>
+                                <td colSpan={6} className="p-8 text-center text-gray-400">Aucun professeur enregistré dans cet établissement.</td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
-             </div>
+            </div>
 
-             {/* Assignment Modal */}
-            {assigningProf && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-                        <h3 className="text-lg font-bold mb-4">{t('selectClassesForProf')} <span className="text-blue-600">{assigningProf.name}</span></h3>
-                        <div className="max-h-60 overflow-y-auto grid grid-cols-2 gap-2 mb-4">
-                            {officialClasses.map(cls => (
-                                <label key={cls} className={`flex items-center gap-2 p-2 border rounded cursor-pointer transition ${assigningProf.assignedSections?.includes(cls) ? 'bg-blue-50 border-blue-500 text-blue-700 font-bold' : 'hover:bg-gray-50'}`}>
-                                    <input 
-                                        type="checkbox" 
-                                        checked={assigningProf.assignedSections?.includes(cls) || false}
-                                        onChange={() => handleToggleClassAssignment(assigningProf, cls)}
-                                        className="rounded text-blue-600 focus:ring-blue-500"
-                                    />
-                                    {cls}
-                                </label>
-                            ))}
+            {selectedProf && structure && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg">
+                        <div className="flex justify-between items-center mb-6 border-b pb-4">
+                            <div>
+                                <h3 className="font-bold text-lg text-gray-800">{t('assignClasses')}</h3>
+                                <p className="text-sm text-gray-500">{selectedProf.name} - <span className="font-medium text-indigo-600">{selectedProf.subject}</span></p>
+                            </div>
+                            <button onClick={() => setSelectedProf(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
                         </div>
+                        
+                        <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto mb-6 p-1">
+                            {structure.classes.map(cls => {
+                                const isAssigned = selectedProf.assignedSections?.includes(cls);
+                                return (
+                                    <label key={cls} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${isAssigned ? 'bg-indigo-50 border-indigo-500 ring-1 ring-indigo-500' : 'hover:bg-gray-50 border-gray-200'}`}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={isAssigned || false}
+                                            onChange={() => {
+                                                const current = selectedProf.assignedSections || [];
+                                                const newSections = isAssigned ? current.filter(c => c !== cls) : [...current, cls];
+                                                handleAssign(selectedProf.id, newSections);
+                                                // Local update for modal
+                                                setSelectedProf({ ...selectedProf, assignedSections: newSections });
+                                            }}
+                                            className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        />
+                                        <span className={`text-sm font-medium ${isAssigned ? 'text-indigo-900' : 'text-gray-700'}`}>{cls}</span>
+                                    </label>
+                                );
+                            })}
+                            {structure.classes.length === 0 && <p className="text-gray-400 italic col-span-2 text-center">{t('noClassesFound')}</p>}
+                        </div>
+                        
                         <div className="flex justify-end">
-                            <button onClick={() => setAssigningProf(null)} className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition">{t('close')}</button>
+                            <button onClick={() => setSelectedProf(null)} className="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-bold text-gray-700 transition">{t('close')}</button>
                         </div>
                     </div>
                 </div>
@@ -225,317 +497,169 @@ const StaffView: React.FC<{ user: User }> = ({ user }) => {
     );
 };
 
-const StudentsView: React.FC<{ user: User }> = ({ user }) => {
+const StudentsManagementView: React.FC<{ user: User }> = ({ user }) => {
     const { t } = useLanguage();
-    const [officialClasses, setOfficialClasses] = useState<string[]>([]);
-    const [viewingClass, setViewingClass] = useState<string | null>(null);
-    const [classStudents, setClassStudents] = useState<User[]>([]);
-    const [showStudentPasswords, setShowStudentPasswords] = useState(false);
+    const [students, setStudents] = useState<User[]>([]);
+    const [structure, setStructure] = useState<SchoolStructure | undefined>(undefined);
+    const [selectedClass, setSelectedClass] = useState<string>('');
+    const [showPasswords, setShowPasswords] = useState(false);
 
     useEffect(() => {
         if (user.school && user.city) {
-            const struct = StorageService.getSchoolStructure(user.school, user.city);
-            if (struct) setOfficialClasses(struct.classes);
+            setStructure(StorageService.getSchoolStructure(user.school, user.city));
+            loadStudents();
         }
     }, [user]);
 
-    useEffect(() => {
-        if (viewingClass) {
-            const allUsers = StorageService.getUsers();
-            const students = allUsers.filter(u => 
-                u.role === UserRole.STUDENT && 
-                u.school === user.school && 
-                u.city === user.city &&
-                u.enrolledClasses?.includes(viewingClass)
-            );
-            setClassStudents(students);
-        }
-    }, [viewingClass, user]);
+    const loadStudents = async () => {
+        const all = await ApiService.getUsers();
+        setStudents(all.filter(u => u.role === UserRole.STUDENT && u.school === user.school && u.city === user.city));
+    };
 
-    const handleStudentUpload = (e: React.ChangeEvent<HTMLInputElement>, targetClass: string) => {
+    const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file || !targetClass) return;
-
+        if (!file || !selectedClass) return;
+        
         const reader = new FileReader();
-        reader.onload = (evt) => {
+        reader.onload = async (evt) => {
             const bstr = evt.target?.result;
             const wb = XLSX.read(bstr, { type: 'binary' });
             const ws = wb.Sheets[wb.SheetNames[0]];
             const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
-
-            let added = 0;
-            let merged = 0;
-            const existingUsers = StorageService.getUsers();
-
-            data.slice(1).forEach((row: any) => {
-                if (row[0]) {
-                    const name = String(row[0]).trim();
-                    if (!name) return;
-
-                    const existingStudent = existingUsers.find(u => 
-                        u.role === UserRole.STUDENT &&
-                        u.name.toLowerCase() === name.toLowerCase() &&
-                        u.school === user.school &&
-                        u.city === user.city
-                    );
-
-                    if (existingStudent) {
-                        const enrolled = existingStudent.enrolledClasses || [];
-                        if (!enrolled.includes(targetClass)) {
-                            existingStudent.enrolledClasses = [...enrolled, targetClass];
-                            StorageService.saveUser(existingStudent);
-                            merged++;
-                        }
-                    } else {
-                        const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                        const username = `${cleanName.substring(0,8)}${Math.floor(Math.random()*9000)+1000}`;
-                        const password = Math.floor(100000 + Math.random() * 900000).toString();
-
-                        const newStudent: User = {
-                            id: `stu-${Date.now()}-${Math.random()}`,
-                            name,
-                            username,
-                            password,
-                            role: UserRole.STUDENT,
-                            class: targetClass,
-                            enrolledClasses: [targetClass],
-                            school: user.school,
-                            city: user.city
-                        };
-                        StorageService.saveUser(newStudent);
-                        added++;
-                    }
+            
+            let count = 0;
+            // Skip the first row (header) to avoid creating a user named "Nom"
+            // We use slice(1) to skip index 0
+            for (const row of data.slice(1)) {
+                // @ts-ignore
+                const name = String(row[0] || '').trim();
+                if (name && name.length > 2) {
+                    const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const randomSuffix = Math.floor(Math.random() * 9000) + 1000;
+                    const username = `${cleanName.substring(0, 6)}_${randomSuffix}`;
+                    const password = Math.floor(100000 + Math.random() * 900000).toString();
+                    
+                    await ApiService.createUser({
+                        id: `stu-${Date.now()}-${Math.random()}`,
+                        name, username, 
+                        password, readablePassword: password,
+                        role: UserRole.STUDENT,
+                        school: user.school, city: user.city,
+                        enrolledClasses: [selectedClass],
+                        accountType: 'ESTABLISHMENT'
+                    });
+                    count++;
                 }
-            });
-            alert(`${added} ${t('studentsAdded')}, ${merged} ${t('studentsMerged')}`);
-            e.target.value = '';
-            if (viewingClass === targetClass) {
-                // Refresh list if we are viewing this class
-                const allUsers = StorageService.getUsers();
-                const students = allUsers.filter(u => u.role === UserRole.STUDENT && u.school === user.school && u.city === user.city && u.enrolledClasses?.includes(targetClass));
-                setClassStudents(students);
             }
+            alert(`${count} ${t('studentsAdded')} ${selectedClass}`);
+            loadStudents();
         };
         reader.readAsBinaryString(file);
+        e.target.value = ''; // Reset input
     };
 
-    const exportStudentCredentials = () => {
-        const users = StorageService.getUsers();
-        const students = users.filter(u => u.role === UserRole.STUDENT && u.school === user.school && u.city === user.city);
-        
-        const data = students.map(s => ({
-            Name: s.name,
-            Classes: s.enrolledClasses?.join(', '),
-            Username: s.username,
-            Password: s.password 
+    const handleExportClass = () => {
+        if (!selectedClass) return;
+        const classStudents = students.filter(s => s.enrolledClasses?.includes(selectedClass));
+        const data = classStudents.map(s => ({
+            Nom: s.name,
+            Identifiant: s.username,
+            MotDePasse: s.readablePassword || s.password,
+            Classe: selectedClass
         }));
         
-        const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Students");
-        XLSX.writeFile(wb, `Etudiants_${user.school}.xlsx`);
+        const ws = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, selectedClass);
+        XLSX.writeFile(wb, `Liste_${selectedClass}_${user.school}.xlsx`);
     };
 
-    const exportClassCredentials = (className: string) => {
-        const users = StorageService.getUsers();
-        const students = users.filter(u => u.role === UserRole.STUDENT && u.school === user.school && u.city === user.city && u.enrolledClasses?.includes(className));
-        
-        const data = students.map(s => ({
-            Name: s.name,
-            Class: className,
-            Username: s.username,
-            Password: s.password 
-        }));
-        
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, className);
-        XLSX.writeFile(wb, `${user.school}_${className}_Credentials.xlsx`);
-    };
-
-    return (
-        <div className="bg-white p-6 rounded shadow animate-fade-in">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">{t('manageStudents')}</h2>
-                <button onClick={exportStudentCredentials} className="text-green-600 text-sm flex items-center gap-1 border p-2 rounded hover:bg-green-50">
-                    <FileDown className="w-4 h-4"/> {t('exportCredentials')} (All)
-                </button>
-            </div>
-            
-            <p className="text-sm text-gray-500 mb-6">{t('importStudentsForClass')}</p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                {officialClasses.map(cls => (
-                    <div key={cls} className={`border p-4 rounded bg-gray-50 flex flex-col justify-between hover:border-blue-300 relative group transition ${viewingClass === cls ? 'ring-2 ring-blue-500 border-transparent' : ''}`}>
-                        <div className="flex justify-between items-start mb-2">
-                                <h3 className="font-bold text-lg">{cls}</h3>
-                                <button 
-                                onClick={() => setViewingClass(viewingClass === cls ? null : cls)}
-                                className="text-xs text-blue-600 hover:underline font-medium"
-                                >
-                                {viewingClass === cls ? t('close') : t('viewStudents')}
-                                </button>
-                        </div>
-                        <div className="flex gap-2">
-                            <label className="cursor-pointer bg-white border border-blue-300 text-blue-700 px-3 py-2 rounded flex-1 flex items-center justify-center gap-2 hover:bg-blue-50 text-xs transition">
-                                <Upload className="w-3 h-3"/> {t('importExcel')}
-                                <input type="file" accept=".xlsx" className="hidden" onChange={(e) => handleStudentUpload(e, cls)} />
-                            </label>
-                            <button 
-                                onClick={() => exportClassCredentials(cls)}
-                                className="bg-green-100 text-green-700 border border-green-200 px-3 py-2 rounded hover:bg-green-200 text-xs flex items-center justify-center transition"
-                                title={t('exportClassCredentials')}
-                            >
-                                <FileDown className="w-3 h-3"/>
-                            </button>
-                        </div>
-                    </div>
-                ))}
-                {officialClasses.length === 0 && <p className="text-gray-400">{t('noClassesFound')}</p>}
-            </div>
-
-            {/* Student Directory Table */}
-            {viewingClass && (
-                <div className="border rounded overflow-hidden animate-fade-in shadow-sm">
-                    <div className="bg-blue-50 p-3 border-b flex justify-between items-center">
-                        <h3 className="font-bold text-blue-800">{t('studentDirectory')}: {viewingClass}</h3>
-                        <button onClick={() => setViewingClass(null)}><X className="w-4 h-4 text-blue-800"/></button>
-                    </div>
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 border-b">
-                            <tr>
-                                <th className="p-3">{t('profName')}</th>
-                                <th className="p-3">{t('username')}</th>
-                                <th className="p-3">
-                                    <div className="flex items-center gap-2">
-                                        {t('password')}
-                                        <button onClick={() => setShowStudentPasswords(!showStudentPasswords)} className="text-gray-400 hover:text-gray-600">
-                                            {showStudentPasswords ? <EyeOff className="w-3 h-3"/> : <Eye className="w-3 h-3"/>}
-                                        </button>
-                                    </div>
-                                </th>
-                                <th className="p-3">Classes</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {classStudents.map(s => (
-                                <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
-                                    <td className="p-3 font-medium">{s.name}</td>
-                                    <td className="p-3 font-mono text-gray-600">{s.username}</td>
-                                    <td className="p-3 font-mono text-gray-500">
-                                        {showStudentPasswords ? (s.password || 'N/A') : '••••••'}
-                                    </td>
-                                    <td className="p-3 text-xs text-gray-400">
-                                        {s.enrolledClasses?.join(', ')}
-                                    </td>
-                                </tr>
-                            ))}
-                            {classStudents.length === 0 && (
-                                <tr><td colSpan={4} className="p-4 text-center text-gray-500">{t('noResults')}</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-        </div>
-    );
-};
-
-const StatsView: React.FC<{ user: User }> = ({ user }) => {
-    const { t } = useLanguage();
-    const stats = StorageService.getSchoolStats(user.school!, user.city!);
-
-    const exportGradebook = () => {
-        const data = StorageService.getSchoolGradebook(user.school!, user.city!);
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Carnet_Notes");
-        XLSX.writeFile(wb, `Gradebook_${user.school}.xlsx`);
-    };
-
-    return (
-        <div className="animate-fade-in">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white p-6 rounded shadow text-center">
-                    <p className="text-gray-500">{t('totalProfs')}</p>
-                    <p className="text-3xl font-bold text-blue-600">{stats.profCount}</p>
-                </div>
-                <div className="bg-white p-6 rounded shadow text-center">
-                    <p className="text-gray-500">{t('totalQuizzes')}</p>
-                    <p className="text-3xl font-bold text-green-600">{stats.quizCount}</p>
-                </div>
-                <div className="bg-white p-6 rounded shadow text-center">
-                    <p className="text-gray-500">{t('totalLessons')}</p>
-                    <p className="text-3xl font-bold text-purple-600">{stats.lessonCount}</p>
-                </div>
-                <div className="bg-white p-6 rounded shadow text-center">
-                    <p className="text-gray-500">{t('globalEngagement')}</p>
-                    <p className="text-3xl font-bold text-orange-600">{stats.totalResults}</p>
-                </div>
-                
-                {/* Gradebook Export */}
-                <div className="col-span-full mt-4 flex justify-end">
-                    <button onClick={exportGradebook} className="bg-indigo-600 text-white px-6 py-3 rounded shadow hover:bg-indigo-700 flex items-center gap-2 transition transform active:scale-95">
-                        <FileDown className="w-5 h-5"/>
-                        <div className="text-left">
-                            <div className="font-bold text-sm">{t('exportGradebook')}</div>
-                            <div className="text-[10px] opacity-80">{t('gradebookDesc')}</div>
-                        </div>
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const RiskView: React.FC<{ user: User }> = ({ user }) => {
-    const { t } = useLanguage();
-    const [studentsAtRisk, setStudentsAtRisk] = useState<any[]>([]);
-
-    useEffect(() => {
-        if (user.school && user.city) {
-            setStudentsAtRisk(StorageService.getStudentsAtRisk(user.school, user.city));
+    const handleDeleteStudent = async (id: string) => {
+        if (confirm(t('delete') + '?')) {
+            await ApiService.deleteUser(id);
+            loadStudents();
         }
-    }, [user]);
+    };
+
+    const filteredStudents = selectedClass 
+        ? students.filter(s => s.enrolledClasses?.includes(selectedClass))
+        : students;
 
     return (
-        <div className="bg-white p-6 rounded shadow animate-fade-in">
-            <h2 className="text-xl font-bold mb-2 flex items-center gap-2 text-orange-600">
-                <AlertTriangle className="w-6 h-6"/> {t('riskTitle')}
+        <div className="space-y-6 animate-fade-in">
+            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <GraduationCap className="w-6 h-6 text-indigo-600"/> {t('manageStudents')}
             </h2>
-            <p className="text-sm text-gray-500 mb-6">{t('riskDesc')}</p>
-            
-            <div className="overflow-auto">
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center gap-4">
+                <div className="flex-1 w-full">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('selectClassToView')}</label>
+                    <select 
+                        className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={selectedClass}
+                        onChange={e => setSelectedClass(e.target.value)}
+                    >
+                        <option value="">{t('allClasses')}</option>
+                        {structure?.classes.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                </div>
+
+                {selectedClass && (
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <label className="bg-green-600 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 cursor-pointer hover:bg-green-700 transition shadow-sm w-full md:w-auto justify-center">
+                            <Upload className="w-4 h-4"/> {t('importExcel')}
+                            <input type="file" className="hidden" accept=".xlsx" onChange={handleImport} />
+                        </label>
+                        <button 
+                            onClick={handleExportClass}
+                            className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-4 py-2.5 rounded-lg flex items-center gap-2 hover:bg-indigo-100 transition w-full md:w-auto justify-center"
+                        >
+                            <Download className="w-4 h-4"/> {t('exportClassCredentials')}
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 border-b">
                         <tr>
-                            <th className="p-3">{t('profName')}</th>
-                            <th className="p-3">Classes</th>
-                            <th className="p-3 text-center">{t('lastLogin')}</th>
-                            <th className="p-3 text-center">{t('avgPerformance')}</th>
-                            <th className="p-3 text-center">Statut</th>
+                            <th className="p-4 text-gray-600 font-semibold">{t('student')}</th>
+                            <th className="p-4 text-gray-600 font-semibold">{t('className')}</th>
+                            <th className="p-4 text-gray-600 font-semibold">{t('username')}</th>
+                            <th className="p-4 text-gray-600 font-semibold">
+                                <button onClick={() => setShowPasswords(!showPasswords)} className="flex items-center gap-1 hover:text-indigo-600">
+                                    {t('password')} {showPasswords ? <EyeOff className="w-3 h-3"/> : <Eye className="w-3 h-3"/>}
+                                </button>
+                            </th>
+                            <th className="p-4 text-end text-gray-600 font-semibold">{t('actions')}</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {studentsAtRisk.map(s => (
-                            <tr key={s.id} className="border-b hover:bg-orange-50">
-                                <td className="p-3 font-medium">{s.name}</td>
-                                <td className="p-3 text-xs">{s.enrolledClasses?.join(', ')}</td>
-                                <td className="p-3 text-center font-mono text-xs">
-                                    {s.daysAbsent === 999 ? t('neverConnected') : `${s.daysAbsent} ${t('daysAgo')}`}
-                                </td>
-                                <td className="p-3 text-center font-bold">
-                                    {s.avgScore}%
-                                </td>
-                                <td className="p-3 text-center">
-                                    <span className={`px-2 py-1 rounded text-xs font-bold text-white ${s.riskLevel === 'HIGH' ? 'bg-red-600' : 'bg-orange-400'}`}>
-                                        {s.riskLevel === 'HIGH' ? t('riskHigh') : t('riskMedium')}
+                        {filteredStudents.map(s => (
+                            <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                                <td className="p-4 font-medium text-gray-800">{s.name}</td>
+                                <td className="p-4">
+                                    <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
+                                        {s.enrolledClasses?.join(', ')}
                                     </span>
+                                </td>
+                                <td className="p-4 font-mono text-gray-500">{s.username}</td>
+                                <td className="p-4 font-mono text-gray-500">{showPasswords ? (s.readablePassword || s.password) : '••••••'}</td>
+                                <td className="p-4 text-end">
+                                    <button onClick={() => handleDeleteStudent(s.id)} className="text-red-400 hover:text-red-600 p-1 rounded transition">
+                                        <Trash2 className="w-4 h-4"/>
+                                    </button>
                                 </td>
                             </tr>
                         ))}
-                        {studentsAtRisk.length === 0 && (
-                            <tr><td colSpan={5} className="p-8 text-center text-green-600 font-medium">Tout va bien ! Aucun élève à risque détecté.</td></tr>
+                        {filteredStudents.length === 0 && (
+                            <tr>
+                                <td colSpan={5} className="p-12 text-center text-gray-400 flex flex-col items-center">
+                                    <FileSpreadsheet className="w-12 h-12 mb-2 text-gray-200"/>
+                                    {selectedClass ? "Aucun élève dans cette classe. Importez une liste Excel." : "Sélectionnez une classe pour commencer."}
+                                </td>
+                            </tr>
                         )}
                     </tbody>
                 </table>
@@ -544,98 +668,233 @@ const RiskView: React.FC<{ user: User }> = ({ user }) => {
     );
 };
 
-const MessagesView: React.FC<{ user: User }> = ({ user }) => {
+const IoTView: React.FC<{ user: User }> = ({ user }) => {
     const { t } = useLanguage();
-    const [selectedProfId, setSelectedProfId] = useState<string | null>(null);
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [schoolProfs, setSchoolProfs] = useState<User[]>([]);
-    const [newMessage, setNewMessage] = useState('');
+    const [devices, setDevices] = useState<IoTDevice[]>([]);
 
     useEffect(() => {
         if (user.school && user.city) {
-            const allUsers = StorageService.getUsers();
-            setSchoolProfs(allUsers.filter(u => u.role === UserRole.PROFESSOR && u.school === user.school && u.city === user.city));
+            setDevices(StorageService.getIoTDevices(user.school, user.city));
+            const interval = setInterval(() => {
+                setDevices(StorageService.getIoTDevices(user.school!, user.city!));
+            }, 3000); // 3s polling for real-time effect
+            return () => clearInterval(interval);
         }
     }, [user]);
 
-    useEffect(() => {
-        if (selectedProfId) {
-            setMessages(StorageService.getMessages(user.id, selectedProfId));
+    const getStatusColor = (status: string) => {
+        switch(status) {
+            case 'ONLINE': return 'text-green-500 bg-green-50 border-green-200';
+            case 'OFFLINE': return 'text-gray-400 bg-gray-50 border-gray-200';
+            case 'ALERT': return 'text-red-500 bg-red-50 border-red-200 animate-pulse';
+            default: return 'text-gray-500';
         }
-    }, [selectedProfId, user.id]);
+    };
 
-    const handleSendMessage = (e: React.FormEvent) => {
+    return (
+        <div className="space-y-6 animate-fade-in">
+             <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <Wifi className="w-6 h-6 text-indigo-600"/> {t('smartSchool')}
+                </h2>
+                <div className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm">
+                    <Activity className="w-3 h-3"/> {t('online')}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {devices.map(d => (
+                    <div key={d.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative overflow-hidden group hover:shadow-md transition">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg ${d.type === 'ENV_SENSOR' ? 'bg-blue-100 text-blue-600' : d.type === 'GPS_TRACKER' ? 'bg-orange-100 text-orange-600' : 'bg-purple-100 text-purple-600'}`}>
+                                    {d.type === 'ENV_SENSOR' && <Thermometer className="w-5 h-5"/>}
+                                    {d.type === 'GPS_TRACKER' && <MapPin className="w-5 h-5"/>}
+                                    {d.type === 'RFID_GATE' && <Smartphone className="w-5 h-5"/>}
+                                </div>
+                                <span className="font-bold text-gray-800 text-sm">{d.name}</span>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded border ${getStatusColor(d.status)}`}>
+                                {d.status}
+                            </span>
+                        </div>
+
+                        <div className="space-y-3 text-sm bg-gray-50 p-3 rounded-lg border border-gray-100">
+                            {d.type === 'ENV_SENSOR' && (
+                                <>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-500 text-xs uppercase font-bold">{t('temperature')}</span>
+                                        <span className="font-mono font-bold text-gray-800">{d.data.temperature}°C</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-500 text-xs uppercase font-bold">{t('humidity')}</span>
+                                        <span className="font-mono font-bold text-gray-800">{d.data.humidity}%</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-500 text-xs uppercase font-bold">{t('co2Level')}</span>
+                                        <span className={`font-mono font-bold ${d.data.co2! > 1000 ? 'text-red-500' : 'text-green-600'}`}>{d.data.co2} ppm</span>
+                                    </div>
+                                </>
+                            )}
+                            {d.type === 'GPS_TRACKER' && (
+                                <>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-500 text-xs uppercase font-bold">{t('speed')}</span>
+                                        <span className="font-mono font-bold text-gray-800">{d.data.speed} km/h</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-500 text-xs uppercase font-bold">Position</span>
+                                        <span className="font-mono text-xs text-gray-600">{d.data.lat?.toFixed(4)}, {d.data.lng?.toFixed(4)}</span>
+                                    </div>
+                                </>
+                            )}
+                            {d.type === 'RFID_GATE' && (
+                                <>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-500 text-xs uppercase font-bold">{t('lastScan')}</span>
+                                        <span className="font-bold text-gray-800">{d.data.lastScan}</span>
+                                    </div>
+                                    <div className="text-xs text-gray-400 text-end mt-1">
+                                        {new Date(d.data.lastScanTime!).toLocaleTimeString()}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        
+                        <div className="mt-4 pt-3 border-t border-gray-100 text-[10px] text-gray-400 flex justify-between items-center">
+                            <span className="font-medium">{d.provider}</span>
+                            <span>MAJ: {new Date(d.lastUpdate).toLocaleTimeString()}</span>
+                        </div>
+                    </div>
+                ))}
+                {devices.length === 0 && (
+                    <div className="col-span-full text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+                        <Wifi className="w-12 h-12 text-gray-300 mx-auto mb-3"/>
+                        <p className="text-gray-500">Aucun appareil connecté.</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const MessagesView: React.FC<{ user: User }> = ({ user }) => {
+    const { t } = useLanguage();
+    const [contacts, setContacts] = useState<User[]>([]);
+    const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [newMessage, setNewMessage] = useState('');
+
+    useEffect(() => {
+        const loadData = async () => {
+            const allUsers = await ApiService.getUsers();
+            // Coordinators see all Professors and Students in their school
+            const relevantUsers = allUsers.filter(u => 
+                (u.role === UserRole.PROFESSOR || u.role === UserRole.STUDENT) && 
+                u.school === user.school && 
+                u.city === user.city
+            );
+            setContacts(relevantUsers);
+        };
+        loadData();
+    }, [user]);
+
+    useEffect(() => {
+        if (selectedContactId) {
+            // Initial load
+            setMessages(StorageService.getMessages(user.id, selectedContactId));
+            
+            // Poll for messages
+            const interval = setInterval(() => {
+                const msgs = StorageService.getMessages(user.id, selectedContactId);
+                setMessages(msgs);
+            }, 3000);
+            return () => clearInterval(interval);
+        }
+    }, [selectedContactId, user.id]);
+
+    const handleSend = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim() || !selectedProfId) return;
+        if (!newMessage.trim() || !selectedContactId) return;
         
-        const msg: Message = {
-            id: `msg-${Date.now()}`,
-            senderId: user.id,
-            senderName: user.name,
-            receiverId: selectedProfId,
-            content: newMessage,
-            timestamp: new Date().toISOString(),
-            read: false
+        const msg: Message = { 
+            id: `msg-${Date.now()}`, 
+            senderId: user.id, 
+            senderName: user.name, 
+            receiverId: selectedContactId, 
+            content: newMessage, 
+            timestamp: new Date().toISOString(), 
+            read: false 
         };
         
         StorageService.sendMessage(msg);
-        setMessages([...messages, msg]);
+        setMessages(prev => [...prev, msg]);
         setNewMessage('');
     };
 
     return (
         <div className="bg-white rounded-lg shadow h-[600px] flex overflow-hidden border animate-fade-in">
              <div className="w-1/3 border-e bg-gray-50 flex flex-col">
-                <div className="p-4 border-b font-bold text-gray-700">{t('staffList')}</div>
+                <div className="p-4 border-b font-bold text-gray-700 bg-gray-100">{t('contact')}</div>
                 <div className="flex-1 overflow-y-auto">
-                     {schoolProfs.length === 0 && <p className="p-4 text-sm text-gray-500 text-center">{t('noProfs')}</p>}
-                     {schoolProfs.map(prof => (
+                     {contacts.length === 0 && <p className="p-4 text-sm text-gray-500 text-center">{t('noMessages')}</p>}
+                     {contacts.map(contact => (
                         <button 
-                            key={prof.id}
-                            onClick={() => setSelectedProfId(prof.id)}
-                            className={`w-full p-4 text-start hover:bg-blue-50 transition border-b ${selectedProfId === prof.id ? 'bg-blue-100' : ''}`}
+                            key={contact.id} 
+                            onClick={() => setSelectedContactId(contact.id)} 
+                            className={`w-full p-4 text-start hover:bg-indigo-50 transition border-b flex justify-between items-center group ${selectedContactId === contact.id ? 'bg-indigo-100 border-l-4 border-l-indigo-600' : 'border-l-4 border-l-transparent'}`}
                         >
-                            <div className="font-medium">{prof.name}</div>
-                            <div className="text-xs text-gray-500">{prof.subject || 'Prof'}</div>
+                            <div>
+                                <div className="font-bold text-gray-800 text-sm group-hover:text-indigo-700">{contact.name}</div>
+                                <div className="text-xs text-gray-500 flex items-center gap-1">
+                                    {contact.role === UserRole.PROFESSOR ? <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold text-[10px]">PROF</span> : <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold text-[10px]">ÉTUDIANT</span>}
+                                    {contact.subject && <span className="text-gray-400">• {contact.subject}</span>}
+                                </div>
+                            </div>
+                            <ChevronRight className={`w-4 h-4 text-gray-300 ${selectedContactId === contact.id ? 'text-indigo-500' : ''}`}/>
                         </button>
                      ))}
                 </div>
              </div>
              <div className="w-2/3 flex flex-col bg-white">
-                  {selectedProfId ? (
+                  {selectedContactId ? (
                        <>
-                            <div className="p-4 border-b font-bold bg-gray-50 flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                {StorageService.getUsers().find(u => u.id === selectedProfId)?.name}
+                            <div className="p-4 border-b font-bold bg-white flex items-center gap-3 shadow-sm z-10">
+                                <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
+                                <div>
+                                    <div className="text-gray-800">{contacts.find(u => u.id === selectedContactId)?.name}</div>
+                                    <div className="text-xs text-gray-400 font-normal">{t('online')}</div>
+                                </div>
                             </div>
-                            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                                {messages.length === 0 && <p className="text-center text-gray-400 text-sm mt-10">{t('noMessages')}</p>}
+                            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50">
                                 {messages.map(m => (
                                     <div key={m.id} className={`flex ${m.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[70%] p-3 rounded-lg text-sm shadow-sm ${m.senderId === user.id ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'}`}>
+                                        <div className={`max-w-[70%] p-3 rounded-2xl text-sm shadow-sm ${m.senderId === user.id ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white border text-gray-800 rounded-bl-none'}`}>
                                             {m.content}
-                                            <div className={`text-[10px] mt-1 opacity-70 ${m.senderId === user.id ? 'text-blue-100' : 'text-gray-500'}`}>
+                                            <div className={`text-[10px] mt-1 text-end ${m.senderId === user.id ? 'text-indigo-200' : 'text-gray-400'}`}>
                                                 {new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                             </div>
                                         </div>
                                     </div>
                                 ))}
+                                {messages.length === 0 && <div className="text-center text-gray-400 text-sm mt-10">Démarrez une conversation.</div>}
                             </div>
-                            <form onSubmit={handleSendMessage} className="p-4 border-t flex gap-2">
+                            <form onSubmit={handleSend} className="p-4 border-t bg-white flex gap-2">
                                 <input 
-                                    className="flex-1 border rounded-full px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                    placeholder={t('typeMessage')}
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    className="flex-1 border rounded-full px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-gray-50" 
+                                    placeholder={t('typeMessage')} 
+                                    value={newMessage} 
+                                    onChange={(e) => setNewMessage(e.target.value)} 
                                 />
-                                <button type="submit" className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700">
+                                <button type="submit" className="bg-indigo-600 text-white p-3 rounded-full hover:bg-indigo-700 shadow-md transition transform active:scale-95">
                                     <Send className="w-5 h-5 rtl:flip" />
                                 </button>
                             </form>
                        </>
                    ) : (
-                       <div className="flex-1 flex items-center justify-center text-gray-400">
-                           <p>{t('selectProf')}</p>
+                       <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/30">
+                           <MessageCircle className="w-16 h-16 text-gray-200 mb-4"/>
+                           <p>Sélectionnez un contact pour discuter.</p>
                        </div>
                    )}
              </div>
@@ -643,206 +902,83 @@ const MessagesView: React.FC<{ user: User }> = ({ user }) => {
     );
 };
 
-const SmartSchoolView: React.FC<{ user: User }> = ({ user }) => {
-    const { t } = useLanguage();
-    const [devices, setDevices] = useState<IoTDevice[]>([]);
-
-    useEffect(() => {
-        if (user.school && user.city) {
-            setDevices(StorageService.getIoTDevices(user.school, user.city));
-            
-            // Poll for live updates every 5 seconds
-            const interval = setInterval(() => {
-                setDevices(StorageService.getIoTDevices(user.school!, user.city!));
-            }, 5000);
-            return () => clearInterval(interval);
-        }
-    }, [user]);
-
-    const envSensors = devices.filter(d => d.type === 'ENV_SENSOR');
-    const trackers = devices.filter(d => d.type === 'GPS_TRACKER');
-    const gates = devices.filter(d => d.type === 'RFID_GATE');
-
-    // Aggregate Environmental Data
-    const avgTemp = envSensors.length > 0 ? (envSensors.reduce((acc, curr) => acc + (curr.data.temperature || 0), 0) / envSensors.length).toFixed(1) : 0;
-    const avgCO2 = envSensors.length > 0 ? Math.round(envSensors.reduce((acc, curr) => acc + (curr.data.co2 || 0), 0) / envSensors.length) : 0;
-
-    return (
-        <div className="space-y-6 animate-fade-in">
-            {/* Header / Intro */}
-            <div className="bg-gradient-to-r from-blue-900 to-indigo-800 rounded-xl p-6 text-white shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold flex items-center gap-2"><Activity className="w-6 h-6"/> {t('iotDashboard')}</h2>
-                    <p className="text-blue-200 text-sm opacity-90">{t('iotDesc')}</p>
-                </div>
-                <button className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/40 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition">
-                    <Plus className="w-4 h-4"/> {t('connectDevice')}
-                </button>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* Environment Column */}
-                <div className="space-y-4">
-                    <h3 className="font-bold text-gray-700 flex items-center gap-2"><Thermometer className="w-5 h-5 text-blue-600"/> {t('envSensors')}</h3>
-                    
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-100 text-center">
-                            <div className="text-gray-500 text-xs uppercase font-bold mb-1">{t('temperature')}</div>
-                            <div className="text-2xl font-bold text-gray-800">{avgTemp}°C</div>
-                            <div className="text-xs text-green-600 mt-1 flex items-center justify-center gap-1"><CheckSquare className="w-3 h-3"/> {t('normal')}</div>
-                        </div>
-                        <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-100 text-center">
-                            <div className="text-gray-500 text-xs uppercase font-bold mb-1">{t('co2Level')}</div>
-                            <div className={`text-2xl font-bold ${Number(avgCO2) > 1000 ? 'text-red-600' : 'text-gray-800'}`}>{avgCO2} ppm</div>
-                            {Number(avgCO2) > 1000 ? (
-                                <div className="text-xs text-red-600 mt-1 font-bold animate-pulse">{t('warning')}</div>
-                            ) : (
-                                <div className="text-xs text-green-600 mt-1">{t('airQuality')} OK</div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Sensor List */}
-                    <div className="bg-white rounded-lg shadow-sm overflow-hidden border">
-                        {envSensors.map(s => (
-                            <div key={s.id} className="p-4 border-b last:border-0 flex justify-between items-center hover:bg-gray-50">
-                                <div>
-                                    <div className="font-bold text-sm text-gray-800">{s.name}</div>
-                                    <div className="text-xs text-gray-500 flex items-center gap-1">
-                                        <Wifi className="w-3 h-3 text-green-500"/> {s.provider}
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-sm font-mono font-bold">{s.data.temperature}°C</div>
-                                    <div className="text-xs text-gray-400">{s.data.humidity}% Hum</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Transport Column */}
-                <div className="space-y-4">
-                    <h3 className="font-bold text-gray-700 flex items-center gap-2"><Bus className="w-5 h-5 text-orange-600"/> {t('gpsTrackers')}</h3>
-                    
-                    <div className="bg-white rounded-lg shadow-sm border overflow-hidden p-4 min-h-[150px] relative bg-gray-50 flex items-center justify-center">
-                        {/* Mock Map Placeholder */}
-                        <div className="absolute inset-0 opacity-20 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ec/Map_of_Marrakech.png')] bg-cover bg-center grayscale"></div>
-                        <div className="relative z-10 text-center">
-                            <MapPin className="w-8 h-8 text-red-600 mx-auto animate-bounce"/>
-                            <p className="text-xs font-bold text-gray-600 mt-1">Live Tracking</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg shadow-sm overflow-hidden border">
-                        {trackers.map(t => (
-                            <div key={t.id} className="p-4 border-b last:border-0 hover:bg-gray-50">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="font-bold text-sm">{t.name}</div>
-                                    <div className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded font-bold">{t.status}</div>
-                                </div>
-                                <div className="flex justify-between items-center text-xs text-gray-600">
-                                    <span className="flex items-center gap-1"><Activity className="w-3 h-3"/> {t.data.speed} km/h</span>
-                                    <span className="font-mono text-[10px]">[{t.data.lat?.toFixed(4)}, {t.data.lng?.toFixed(4)}]</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Security/RFID Column */}
-                <div className="space-y-4">
-                    <h3 className="font-bold text-gray-700 flex items-center gap-2"><ScanBarcode className="w-5 h-5 text-purple-600"/> {t('rfidGate')}</h3>
-                    
-                    {gates.map(g => (
-                        <div key={g.id} className="bg-white rounded-lg shadow-sm p-4 border border-l-4 border-l-purple-500">
-                            <div className="flex justify-between items-center mb-3">
-                                <div className="font-bold text-gray-800">{g.name}</div>
-                                <Radio className="w-4 h-4 text-purple-500 animate-pulse"/>
-                            </div>
-                            <div className="bg-gray-50 p-3 rounded border border-dashed border-gray-200">
-                                <div className="text-xs text-gray-500 uppercase font-bold mb-1">{t('lastScan')}</div>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 font-bold text-xs">
-                                        {g.data.lastScan?.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <div className="text-sm font-bold text-gray-800">{g.data.lastScan}</div>
-                                        <div className="text-[10px] text-gray-400">{new Date(g.data.lastScanTime || '').toLocaleTimeString()}</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="mt-3 text-right">
-                                <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded">by {g.provider}</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-            </div>
-        </div>
-    );
-};
-
 // --- MAIN COMPONENT ---
 
-const CoordinatorDashboard: React.FC<Props> = ({ user, onLogout }) => {
-  const { t, dir } = useLanguage();
-  const location = useLocation();
+const CoordinatorDashboard: React.FC<{ user: User, onLogout: () => void }> = ({ user, onLogout }) => {
+    const { t, dir } = useLanguage();
+    const location = useLocation();
 
-  const isActive = (path: string) => location.pathname.includes(`/coordinator/${path}`);
+    const isActive = (path: string) => location.pathname.includes(`/coordinator/${path}`);
 
-  return (
-    <div className="min-h-screen bg-gray-100 flex flex-col" dir={dir}>
-        <header className="bg-white shadow px-8 py-4 flex justify-between items-center sticky top-0 z-20">
-            <div>
-                <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <School className="w-6 h-6 text-blue-600"/> {t('coordinatorSpace')}
-                </h1>
-                <p className="text-gray-500 text-sm">{user.school} ({user.city})</p>
-            </div>
-            <button onClick={onLogout} className="text-red-600 flex items-center gap-2 font-medium hover:bg-red-50 px-3 py-1 rounded transition">
-                <LogOut className="w-5 h-5 rtl:flip"/> {t('logout')}
-            </button>
-        </header>
-
-        <main className="flex-1 p-8 max-w-6xl mx-auto w-full">
-            <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-300">
-                {[
-                    {id: 'structure', icon: Settings, label: t('manageStructure')},
-                    {id: 'profs', icon: Users, label: t('manageStaff')},
-                    {id: 'messages', icon: MessageCircle, label: t('messages')},
-                    {id: 'students', icon: Upload, label: t('manageStudents')},
-                    {id: 'stats', icon: BarChart, label: t('stats')},
-                    {id: 'risk', icon: AlertTriangle, label: t('riskDetection')},
-                    {id: 'smart-school', icon: Activity, label: t('smartSchool')}
-                ].map(tab => (
-                    <Link 
-                        key={tab.id}
-                        to={`/coordinator/${tab.id}`}
-                        className={`pb-2 px-4 flex items-center gap-2 border-b-2 transition-colors relative ${isActive(tab.id) ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <tab.icon className="w-4 h-4"/> {tab.label}
-                    </Link>
-                ))}
-            </div>
-
-            <Routes>
-                <Route path="structure" element={<StructureView user={user} />} />
-                <Route path="profs" element={<StaffView user={user} />} />
-                <Route path="students" element={<StudentsView user={user} />} />
-                <Route path="stats" element={<StatsView user={user} />} />
-                <Route path="risk" element={<RiskView user={user} />} />
-                <Route path="messages" element={<MessagesView user={user} />} />
-                <Route path="smart-school" element={<SmartSchoolView user={user} />} />
+    return (
+        <div className="min-h-screen bg-gray-50 flex" dir={dir}>
+            {/* Sidebar */}
+            <aside className="w-64 bg-white border-r hidden md:flex flex-col z-10">
+                <div className="p-6 border-b flex items-center gap-3 bg-indigo-700 text-white">
+                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                        <Building className="w-6 h-6 text-white"/>
+                    </div>
+                    <div>
+                        <h1 className="font-bold font-logo text-lg tracking-tight">Tinmel</h1>
+                        <p className="text-xs text-indigo-200">{t('coordinatorSpace')}</p>
+                    </div>
+                </div>
                 
-                <Route path="*" element={<Navigate to="structure" replace />} />
-            </Routes>
-        </main>
-    </div>
-  );
+                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                    {[
+                        { id: 'overview', icon: LayoutDashboard, label: t('schoolStatsView') },
+                        { id: 'structure', icon: Building, label: t('manageStructure') },
+                        { id: 'staff', icon: Users, label: t('manageStaff') },
+                        { id: 'students', icon: GraduationCap, label: t('manageStudents') },
+                        { id: 'messages', icon: MessageCircle, label: t('messages') }, 
+                        { id: 'iot', icon: Wifi, label: t('smartSchool') },
+                    ].map(item => (
+                        <Link 
+                            key={item.id}
+                            to={`/coordinator/${item.id}`}
+                            className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${isActive(item.id) ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'}`}
+                        >
+                            <item.icon className="w-5 h-5"/> {item.label}
+                        </Link>
+                    ))}
+                </nav>
+
+                <div className="p-4 border-t">
+                     <button onClick={onLogout} className="flex items-center gap-2 text-red-600 hover:bg-red-50 w-full px-4 py-2 rounded-lg transition-colors text-sm font-medium">
+                        <LogOut className="w-4 h-4 rtl:flip"/> {t('logout')}
+                    </button>
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+                <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 relative z-0">
+                     <HeaderBackground />
+                     <div className="z-10 flex items-center gap-4">
+                         <div className="w-10 h-10 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center font-bold text-lg shadow-sm">
+                             {user.name.charAt(0).toUpperCase()}
+                         </div>
+                         <div>
+                             <h2 className="font-bold text-gray-800">{user.name}</h2>
+                             <p className="text-xs text-gray-500">{user.school}</p>
+                         </div>
+                     </div>
+                </header>
+
+                <div className="flex-1 overflow-auto p-6 relative z-0">
+                    <Routes>
+                        <Route path="overview" element={<StatsView user={user} />} />
+                        <Route path="structure" element={<StructureView user={user} />} />
+                        <Route path="staff" element={<StaffManagementView user={user} />} />
+                        <Route path="students" element={<StudentsManagementView user={user} />} />
+                        <Route path="messages" element={<MessagesView user={user} />} />
+                        <Route path="iot" element={<IoTView user={user} />} />
+                        <Route path="*" element={<Navigate to="overview" replace />} />
+                    </Routes>
+                </div>
+            </main>
+        </div>
+    );
 };
 
 export default CoordinatorDashboard;

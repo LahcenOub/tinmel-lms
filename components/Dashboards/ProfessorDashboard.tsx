@@ -1,77 +1,224 @@
-
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { User, UserRole, Quiz, QuizResult, Message, Lesson, LessonType, Announcement, WhiteboardSession } from '../../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { User, Quiz, Lesson, LessonType, QuestionType, UserRole, Message, QuizResult, TreasureCode, SchoolEvent, Question } from '../../types';
 import { StorageService } from '../../services/storageService';
 import { ApiService } from '../../services/apiService';
 import QuizBuilder from '../Quiz/QuizBuilder';
 import WhiteboardRoom from '../Whiteboard/WhiteboardRoom';
-import { LogOut, Users, FileText, BarChart, Download, Link as LinkIcon, Lock, Globe, EyeOff, Clock, MessageCircle, Send, BookOpen, Video, File, Trash, UserCircle, Save, Bell, X, Megaphone, Filter, PlusCircle, AlertTriangle, Coffee, Table, PenTool, ExternalLink, Loader2, Upload } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { 
+    LayoutDashboard, FileText, Users, BookOpen, MessageCircle, Settings, LogOut, 
+    Plus, Search, PenTool, Video, Trash2, BarChart, ExternalLink, Copy, CheckCircle, 
+    Play, X, ChevronRight, MonitorPlay, AlignLeft, UserPlus, Coffee, Send, Eye, EyeOff, Upload, Clock, Eye as ViewIcon, Gem, Key, Calendar, HelpCircle, Edit
+} from 'lucide-react';
+import * as XLSX from 'xlsx';
 
-interface Props {
-  user: User;
-  onLogout: () => void;
-}
+// --- HEADER BACKGROUND COMPONENT ---
+const HeaderBackground = () => {
+    const elements = useMemo(() => {
+        const items = [];
+        const chars = [
+            'ا', 'ب', 'ح', 'د', 'ر', 'س', 'ص', 'ط', 'ع', 'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'و', 'ي',
+            'أ', 'إ', 'آ', 'ة', 'ث', 'ج', 'خ', 'ذ', 'ز', 'ش', 'ض', 'ظ', 'غ', 'ف',
+            'ⴰ', 'ⴱ', 'ⴳ', 'ⴷ', 'ⴹ', 'ⴻ', 'ⴼ', 'ⴽ', 'ⵀ', 'ⵃ', 'ⵄ', 'ⵅ', 'ⵇ', 'ⵉ', 'ⵊ', 'ⵍ', 'ⵎ', 'ⵏ', 'ⵓ', 'ⵔ', 'ⵕ', 'ⵖ', 'ⵙ', 'ⵚ', 'ⵛ', 'ⵜ', 'ⵟ', 'ⵡ', 'ⵢ', 'ⵣ', 'ⵥ',
+            'Tinmel', 'Education', 'Savoir', 'المعرفة', 'A', 'B', 'C', '1', '2', '3', '∑', '∫', 'π'
+        ];
 
-// ... (Other views remain the same, only updating LessonBuilderWrapper and main Dashboard if needed) ...
+        for (let i = 0; i < 35; i++) {
+            items.push({
+                char: chars[Math.floor(Math.random() * chars.length)],
+                top: Math.random() * 100,
+                left: Math.random() * 100,
+                size: Math.random() * 2 + 1, // 1rem to 3rem
+                duration: Math.random() * 30 + 20,
+                delay: Math.random() * 20,
+                initialRotate: Math.random() * 360,
+                opacity: Math.random() * 0.15 + 0.05, // 5% to 20% opacity
+                font: Math.random() > 0.5 ? 'Amiri' : 'sans-serif' 
+            });
+        }
+        return items;
+    }, []);
 
-// --- REUSING PREVIOUS VIEWS (QuizzesView, StudentsView, ResultsView, StaffRoomView, ProfileView, MessagesView, WhiteboardView) ---
-// (For brevity, I will output the FULL file content ensuring everything is included, but focusing on the LessonBuilder update)
+    return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+            <style>{`
+                @keyframes swimHeader {
+                    0% { transform: translate(0, 0) rotate(0deg); }
+                    33% { transform: translate(25px, -15px) rotate(4deg); }
+                    66% { transform: translate(-15px, 15px) rotate(-4deg); }
+                    100% { transform: translate(0, 0) rotate(0deg); }
+                }
+            `}</style>
+            {elements.map((el, i) => (
+                <div key={i} style={{
+                    position: 'absolute',
+                    top: `${el.top}%`,
+                    left: `${el.left}%`,
+                    fontSize: `${el.size}rem`,
+                    fontFamily: el.font === 'Amiri' ? '"Amiri", serif' : 'sans-serif',
+                    color: `rgba(37, 99, 235, ${el.opacity})`, // Blue-600
+                    zIndex: 0,
+                    lineHeight: 1,
+                    whiteSpace: 'nowrap',
+                    filter: 'blur(0.5px)',
+                    animation: `swimHeader ${el.duration}s ease-in-out infinite -${el.delay}s`
+                }}>
+                    <div style={{ transform: `rotate(${el.initialRotate}deg)` }}>
+                        {el.char}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+// --- SUB-VIEWS ---
+
+const Overview: React.FC<{ user: User }> = ({ user }) => {
+    const { t } = useLanguage();
+    const [stats, setStats] = useState({ quizzes: 0, lessons: 0, students: 0, results: 0 });
+
+    useEffect(() => {
+        const quizzes = StorageService.getQuizzesByProf(user.id);
+        const lessons = StorageService.getLessonsByProf(user.id);
+        // Estimate students based on results interaction
+        const results = StorageService.getResults().filter(r => quizzes.some(q => q.id === r.quizId));
+        const uniqueStudents = new Set(results.map(r => r.studentId)).size;
+
+        setStats({
+            quizzes: quizzes.length,
+            lessons: lessons.length,
+            students: uniqueStudents,
+            results: results.length
+        });
+    }, [user.id]);
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+                <div className="bg-blue-100 p-4 rounded-full text-blue-600"><FileText className="w-8 h-8"/></div>
+                <div><p className="text-gray-500 text-sm font-medium">{t('myQuizzes')}</p><h3 className="text-3xl font-bold text-gray-800">{stats.quizzes}</h3></div>
+            </div>
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+                <div className="bg-orange-100 p-4 rounded-full text-orange-600"><BookOpen className="w-8 h-8"/></div>
+                <div><p className="text-gray-500 text-sm font-medium">{t('myCourses')}</p><h3 className="text-3xl font-bold text-gray-800">{stats.lessons}</h3></div>
+            </div>
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+                <div className="bg-green-100 p-4 rounded-full text-green-600"><Users className="w-8 h-8"/></div>
+                <div><p className="text-gray-500 text-sm font-medium">{t('participants')}</p><h3 className="text-3xl font-bold text-gray-800">{stats.students}</h3></div>
+            </div>
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+                <div className="bg-purple-100 p-4 rounded-full text-purple-600"><BarChart className="w-8 h-8"/></div>
+                <div><p className="text-gray-500 text-sm font-medium">{t('results')}</p><h3 className="text-3xl font-bold text-gray-800">{stats.results}</h3></div>
+            </div>
+        </div>
+    );
+};
 
 const QuizzesView: React.FC<{ user: User }> = ({ user }) => {
     const { t } = useLanguage();
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-    const navigate = useNavigate();
+    const [isCreating, setIsCreating] = useState(false);
 
     useEffect(() => {
         setQuizzes(StorageService.getQuizzesByProf(user.id));
-    }, [user.id]);
+    }, [user.id, isCreating]);
 
-    const toggleQuizStatus = (quiz: Quiz) => {
-        const updatedQuiz = { ...quiz, status: quiz.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED' as 'DRAFT' | 'PUBLISHED' };
-        StorageService.saveQuiz(updatedQuiz);
-        setQuizzes(StorageService.getQuizzesByProf(user.id));
+    const handleDelete = (id: string) => {
+        if (confirm(t('delete') + '?')) {
+            const updated = quizzes.filter(q => q.id !== id);
+             const allQuizzes = StorageService.getQuizzes();
+             const newAll = allQuizzes.filter(q => q.id !== id);
+             localStorage.setItem('quizmaster_quizzes', JSON.stringify(newAll));
+            setQuizzes(updated);
+        }
     };
 
-    const copyQuizLink = (quizId: string) => {
-        const cleanUrl = `${window.location.origin}/?quizId=${quizId}`;
-        navigator.clipboard.writeText(cleanUrl);
+    const togglePublish = (quiz: Quiz) => {
+        const updated = { ...quiz, status: quiz.status === 'DRAFT' ? 'PUBLISHED' : 'DRAFT' } as Quiz;
+        StorageService.saveQuiz(updated);
+        setQuizzes(quizzes.map(q => q.id === quiz.id ? updated : q));
+    };
+
+    const copyLink = (id: string) => {
+        const url = `${window.location.origin}/student?quizId=${id}`;
+        navigator.clipboard.writeText(url);
         alert(t('linkCopied'));
     };
 
+    if (isCreating) {
+        return (
+            <QuizBuilder 
+                profId={user.id}
+                onSave={(quiz) => {
+                    StorageService.saveQuiz(quiz);
+                    setIsCreating(false);
+                }}
+                onCancel={() => setIsCreating(false)}
+                availableClasses={user.assignedSections || (user.class ? [user.class] : [])}
+            />
+        );
+    }
+
     return (
-        <div className="animate-fade-in">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h2 className="text-xl font-bold text-gray-800">{t('myQuizzes')}</h2>
-                    <div className="text-sm text-gray-500 italic mt-1">{t('unifiedClassWarning')}</div>
-                </div>
-                <button onClick={() => navigate('new')} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 shadow-sm flex items-center gap-2">
-                    <PlusCircle className="w-4 h-4"/> {t('createQuiz')}
+        <div className="space-y-6 animate-fade-in">
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-800">{t('myQuizzes')}</h2>
+                <button 
+                    onClick={() => setIsCreating(true)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm"
+                >
+                    <Plus className="w-5 h-5"/> {t('createQuiz')}
                 </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {quizzes.map(q => (
-                    <div key={q.id} className="bg-white p-5 rounded-lg shadow border hover:shadow-md transition flex flex-col justify-between">
-                        <div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {quizzes.map(quiz => (
+                    <div key={quiz.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition group">
+                        <div className="p-5">
                             <div className="flex justify-between items-start mb-2">
-                                <h3 className="font-bold text-lg">{q.title}</h3>
-                                {q.status === 'PUBLISHED' ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">{t('published')}</span> : <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full">{t('draft')}</span>}
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${quiz.status === 'PUBLISHED' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                    {t(quiz.status.toLowerCase())}
+                                </span>
+                                <div className="text-gray-400 text-xs">
+                                    {new Date(quiz.createdAt).toLocaleDateString()}
+                                </div>
                             </div>
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                <span className="text-xs bg-gray-100 px-2 py-1 rounded">{q.questions.length} Q.</span>
-                                {q.assignedClasses.length > 0 && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">{q.assignedClasses.length} Classes</span>}
+                            <h3 className="font-bold text-lg text-gray-800 mb-2 line-clamp-1">{quiz.title}</h3>
+                            <p className="text-sm text-gray-500 mb-4 line-clamp-2">{quiz.description || 'Aucune description'}</p>
+                            
+                            <div className="flex items-center gap-2 text-xs text-gray-500 mb-4">
+                                <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded">{quiz.questions.length} {t('questionsCount')}</span>
+                                {quiz.timeLimit && <span className="bg-orange-50 text-orange-600 px-2 py-1 rounded">{quiz.timeLimit} {t('timeLimitLabel')}</span>}
+                            </div>
+                            
+                            <div className="text-xs text-gray-400 mb-4">
+                                <strong>{t('assignedClasses')}:</strong> {quiz.assignedClasses.length > 0 ? quiz.assignedClasses.join(', ') : 'Aucune'}
                             </div>
                         </div>
-                        <div className="flex gap-2 border-t pt-4">
-                            <button onClick={() => toggleQuizStatus(q)} className="flex-1 text-xs py-2 rounded bg-gray-100 hover:bg-gray-200 transition">{q.status === 'PUBLISHED' ? t('unpublish') : t('publish')}</button>
-                            <button onClick={() => copyQuizLink(q.id)} className="flex-1 bg-blue-50 text-blue-700 text-xs py-2 rounded hover:bg-blue-100 transition"><LinkIcon className="w-3 h-3 inline"/> {t('copyLink')}</button>
+                        <div className="bg-gray-50 p-3 flex justify-between items-center border-t">
+                             <div className="flex gap-2">
+                                 <button onClick={() => togglePublish(quiz)} className="p-2 hover:bg-white rounded-full text-gray-500 transition" title={quiz.status === 'DRAFT' ? t('publish') : t('unpublish')}>
+                                     {quiz.status === 'DRAFT' ? <CheckCircle className="w-4 h-4"/> : <X className="w-4 h-4"/>}
+                                 </button>
+                                 <button onClick={() => copyLink(quiz.id)} className="p-2 hover:bg-white rounded-full text-gray-500 transition" title={t('copyLink')}>
+                                     <Copy className="w-4 h-4"/>
+                                 </button>
+                             </div>
+                             <button onClick={() => handleDelete(quiz.id)} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full text-gray-400 transition">
+                                 <Trash2 className="w-4 h-4"/>
+                             </button>
                         </div>
                     </div>
                 ))}
-                {quizzes.length === 0 && <p className="col-span-full text-center text-gray-400 py-10">{t('noData')}</p>}
+                {quizzes.length === 0 && (
+                    <div className="col-span-full text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+                        <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3"/>
+                        <p className="text-gray-500">{t('noData')}</p>
+                        <button onClick={() => setIsCreating(true)} className="text-blue-600 font-medium mt-2 hover:underline">{t('createQuiz')}</button>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -80,99 +227,745 @@ const QuizzesView: React.FC<{ user: User }> = ({ user }) => {
 const LessonsView: React.FC<{ user: User }> = ({ user }) => {
     const { t } = useLanguage();
     const [lessons, setLessons] = useState<Lesson[]>([]);
-    const navigate = useNavigate();
+    const [isCreating, setIsCreating] = useState(false);
+    const [isEditing, setIsEditing] = useState<string | null>(null); // Lesson ID being edited
+    
+    // Form State
+    const [title, setTitle] = useState('');
+    const [desc, setDesc] = useState('');
+    const [type, setType] = useState<LessonType>(LessonType.VIDEO);
+    const [contentUrl, setContentUrl] = useState('');
+    
+    // Time & Treasure Hunt
+    const [minTimeMinutes, setMinTimeMinutes] = useState(1); 
+    const [enableTreasure, setEnableTreasure] = useState(false);
+    
+    // Availability
+    const [availableFrom, setAvailableFrom] = useState('');
+    const [availableUntil, setAvailableUntil] = useState('');
+
+    const [assignedClasses, setAssignedClasses] = useState<string[]>([]);
+    const [uploading, setUploading] = useState(false);
+    // Treasure Hunt State
+    const [treasureCodes, setTreasureCodes] = useState<TreasureCode[]>([]);
+    const [newCode, setNewCode] = useState('');
+    const [newCodeBadge, setNewCodeBadge] = useState('badge_scholar');
+
+    // Validation Questions State
+    const [validationQuestions, setValidationQuestions] = useState<Question[]>([]);
+    const [newQuestionText, setNewQuestionText] = useState('');
+    const [newQuestionType, setNewQuestionType] = useState<QuestionType>(QuestionType.MCQ);
+    const [newOptions, setNewOptions] = useState(['', '', '']);
+    const [correctOption, setCorrectOption] = useState(0);
+
+    // Live Students Simulation State
+    const [liveStudentsMap, setLiveStudentsMap] = useState<Record<string, number>>({});
 
     useEffect(() => {
         setLessons(StorageService.getLessonsByProf(user.id));
-    }, [user.id]);
+        
+        // --- REAL TIME HEARTBEAT POLLING ---
+        const interval = setInterval(() => {
+            setLiveStudentsMap(prev => {
+                const next = { ...prev };
+                lessons.forEach(l => {
+                    // Only for interactive or document lessons (video is harder to track without custom player)
+                    if (l.type === LessonType.INTERACTIVE || l.type === LessonType.DOCUMENT) {
+                        next[l.id] = StorageService.getActiveStudentCount(l.id);
+                    }
+                });
+                return next;
+            });
+        }, 5000); // Check every 5 seconds
 
-    const toggleLessonStatus = (lesson: Lesson) => {
-        const updatedLesson = { ...lesson, status: lesson.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED' as 'DRAFT' | 'PUBLISHED' };
-        StorageService.saveLesson(updatedLesson);
-        setLessons(StorageService.getLessonsByProf(user.id));
+        return () => clearInterval(interval);
+    }, [user.id, isCreating, isEditing]); // Removed 'lessons' from dependency to avoid infinite loop if lessons update, but we need it initially.
+    
+    // Effect to update lessons list when creating/editing changes
+    useEffect(() => {
+         setLessons(StorageService.getLessonsByProf(user.id));
+    }, [isCreating, isEditing]);
+
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setUploading(true);
+            try {
+                const url = await ApiService.uploadFile(file);
+                setContentUrl(url);
+            } catch (err) {
+                alert("Erreur upload");
+            } finally {
+                setUploading(false);
+            }
+        }
     };
 
-    const deleteLesson = (id: string) => {
+    const addTreasureCode = () => {
+        if (!newCode.trim()) return;
+        setTreasureCodes([...treasureCodes, { code: newCode.trim().toUpperCase(), badgeId: newCodeBadge }]);
+        setNewCode('');
+    };
+
+    const removeTreasureCode = (code: string) => {
+        setTreasureCodes(treasureCodes.filter(tc => tc.code !== code));
+    };
+
+    const addValidationQuestion = () => {
+        if (!newQuestionText.trim()) return;
+        
+        let q: Question = {
+            id: `vq-${Date.now()}`,
+            text: newQuestionText,
+            type: newQuestionType,
+            points: 1
+        };
+
+        if (newQuestionType === QuestionType.MCQ) {
+            const validOptions = newOptions.filter(o => o.trim() !== '');
+            if (validOptions.length < 2) return alert("Il faut au moins 2 options.");
+            q.options = validOptions;
+            q.correctAnswer = validOptions[correctOption];
+        } else if (newQuestionType === QuestionType.BOOLEAN) {
+            q.correctAnswer = correctOption === 0; // 0 = Vrai
+        }
+
+        setValidationQuestions([...validationQuestions, q]);
+        setNewQuestionText('');
+        setNewOptions(['', '', '']);
+    };
+
+    const removeValidationQuestion = (id: string) => {
+        setValidationQuestions(validationQuestions.filter(q => q.id !== id));
+    };
+
+    const handleEdit = (lesson: Lesson) => {
+        setIsEditing(lesson.id);
+        setIsCreating(true);
+        setTitle(lesson.title);
+        setDesc(lesson.description);
+        setType(lesson.type);
+        setContentUrl(lesson.contentUrl);
+        setAssignedClasses(lesson.assignedClasses);
+        setAvailableFrom(lesson.availableFrom || '');
+        setAvailableUntil(lesson.availableUntil || '');
+        
+        if (lesson.type === LessonType.INTERACTIVE) {
+            setMinTimeMinutes((lesson.minTimeSeconds || 60) / 60);
+            setEnableTreasure(lesson.hasTreasureHunt || false);
+            setTreasureCodes(lesson.treasureCodes || []);
+            setValidationQuestions(lesson.questions || []);
+        }
+    };
+
+    const handleSave = () => {
+        if (!title || !contentUrl) return;
+        
+        const lessonData: Lesson = {
+            id: isEditing || `less-${Date.now()}`,
+            professorId: user.id,
+            title,
+            description: desc,
+            type,
+            contentUrl,
+            assignedClasses,
+            createdAt: isEditing ? lessons.find(l => l.id === isEditing)?.createdAt || new Date().toISOString() : new Date().toISOString(),
+            status: 'PUBLISHED',
+            minTimeSeconds: type === LessonType.INTERACTIVE ? (minTimeMinutes * 60) : undefined,
+            hasTreasureHunt: type === LessonType.INTERACTIVE ? enableTreasure : false,
+            treasureCodes: (type === LessonType.INTERACTIVE && enableTreasure) ? treasureCodes : undefined,
+            questions: (type === LessonType.INTERACTIVE && validationQuestions.length > 0) ? validationQuestions : undefined,
+            availableFrom: availableFrom || undefined,
+            availableUntil: availableUntil || undefined
+        };
+
+        StorageService.saveLesson(lessonData);
+        
+        resetForm();
+    };
+
+    const resetForm = () => {
+        setIsCreating(false);
+        setIsEditing(null);
+        setTitle(''); setDesc(''); setContentUrl(''); setAssignedClasses([]); setTreasureCodes([]); 
+        setEnableTreasure(false); setMinTimeMinutes(1); setValidationQuestions([]);
+        setAvailableFrom(''); setAvailableUntil('');
+    };
+
+    const handleDelete = (id: string) => {
         if(confirm(t('delete') + '?')) {
             StorageService.deleteLesson(id);
             setLessons(StorageService.getLessonsByProf(user.id));
         }
     };
 
+    if (isCreating) {
+        return (
+             <div className="bg-white rounded-lg shadow-lg p-6 max-w-3xl mx-auto animate-fade-in">
+                 <h2 className="text-2xl font-bold mb-6">{isEditing ? 'Modifier le cours' : t('createLesson')}</h2>
+                 <div className="space-y-4">
+                     <input className="w-full border p-3 rounded" placeholder={t('lessonTitle')} value={title} onChange={e => setTitle(e.target.value)} />
+                     <textarea className="w-full border p-3 rounded" placeholder={t('lessonDesc')} value={desc} onChange={e => setDesc(e.target.value)} />
+                     
+                     <div className="flex gap-4">
+                         <button onClick={() => setType(LessonType.VIDEO)} className={`flex-1 p-3 rounded border text-center font-bold flex flex-col items-center justify-center gap-2 transition ${type === LessonType.VIDEO ? 'bg-blue-50 border-blue-500 text-blue-600' : 'hover:bg-gray-50'}`}>
+                             <Video className="w-5 h-5"/> {t('video')}
+                         </button>
+                         <button onClick={() => setType(LessonType.DOCUMENT)} className={`flex-1 p-3 rounded border text-center font-bold flex flex-col items-center justify-center gap-2 transition ${type === LessonType.DOCUMENT ? 'bg-blue-50 border-blue-500 text-blue-600' : 'hover:bg-gray-50'}`}>
+                             <FileText className="w-5 h-5"/> {t('document')}
+                         </button>
+                         <button onClick={() => setType(LessonType.INTERACTIVE)} className={`flex-1 p-3 rounded border text-center font-bold flex flex-col items-center justify-center gap-2 transition ${type === LessonType.INTERACTIVE ? 'bg-indigo-50 border-indigo-500 text-indigo-600' : 'hover:bg-gray-50'}`}>
+                             <ViewIcon className="w-5 h-5"/> Lecture Interactive
+                         </button>
+                     </div>
+
+                     {type === LessonType.VIDEO ? (
+                         <input className="w-full border p-3 rounded" placeholder={t('videoUrl')} value={contentUrl} onChange={e => setContentUrl(e.target.value)} />
+                     ) : (
+                         <div className="border-2 border-dashed p-6 rounded text-center">
+                             <input type="file" className="hidden" id="less-upload" onChange={handleFileUpload} accept={type === LessonType.INTERACTIVE ? 'application/pdf' : '*/*'} />
+                             <label htmlFor="less-upload" className="cursor-pointer text-blue-600 font-bold hover:underline">
+                                 {uploading ? t('loading') : (contentUrl ? 'Fichier chargé !' : (type === LessonType.INTERACTIVE ? 'Uploader PDF' : t('fileUpload')))}
+                             </label>
+                         </div>
+                     )}
+
+                     {/* Scheduling (Optional) */}
+                     <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                         <h3 className="font-bold text-gray-700 flex items-center gap-2 mb-3">
+                             <Calendar className="w-5 h-5"/> Disponibilité (Optionnel)
+                         </h3>
+                         <div className="grid grid-cols-2 gap-4">
+                             <div>
+                                 <label className="block text-xs font-bold text-gray-500 mb-1">Disponible à partir de</label>
+                                 <input 
+                                     type="datetime-local" 
+                                     className="w-full border p-2 rounded text-sm"
+                                     value={availableFrom}
+                                     onChange={e => setAvailableFrom(e.target.value)}
+                                 />
+                             </div>
+                             <div>
+                                 <label className="block text-xs font-bold text-gray-500 mb-1">Jusqu'au</label>
+                                 <input 
+                                     type="datetime-local" 
+                                     className="w-full border p-2 rounded text-sm"
+                                     value={availableUntil}
+                                     onChange={e => setAvailableUntil(e.target.value)}
+                                 />
+                             </div>
+                         </div>
+                     </div>
+
+                     {type === LessonType.INTERACTIVE && (
+                         <div className="space-y-4">
+                            <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                                <label className="block text-sm font-bold text-indigo-800 mb-2 flex items-center gap-2">
+                                    <Clock className="w-4 h-4"/> Temps de lecture minimum requis (Minutes)
+                                </label>
+                                <input 
+                                    type="number" 
+                                    min="1" 
+                                    className="w-full border p-2 rounded" 
+                                    value={minTimeMinutes} 
+                                    onChange={e => setMinTimeMinutes(parseInt(e.target.value))} 
+                                />
+                                <p className="text-xs text-indigo-600 mt-2">L'étudiant devra rester sur la page ce laps de temps avant de pouvoir valider le cours.</p>
+                            </div>
+
+                            {/* Validation Questions */}
+                            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                                <h3 className="font-bold text-green-800 flex items-center gap-2 mb-3">
+                                    <HelpCircle className="w-5 h-5"/> Questions de validation (Optionnel)
+                                </h3>
+                                <p className="text-xs text-green-700 mb-3">Ces questions apparaîtront après la fin du minuteur pour valider la compréhension.</p>
+                                
+                                <div className="space-y-2 mb-4">
+                                    {validationQuestions.map((q, idx) => (
+                                        <div key={q.id} className="flex justify-between items-center bg-white p-2 rounded border border-green-100">
+                                            <div className="flex items-center gap-2">
+                                                <span className="bg-green-200 text-green-800 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">{idx + 1}</span>
+                                                <span className="font-medium text-sm">{q.text}</span>
+                                                <span className="text-[10px] text-gray-500 bg-gray-100 px-1 rounded">{q.type}</span>
+                                            </div>
+                                            <button onClick={() => removeValidationQuestion(q.id)} className="text-red-400 hover:text-red-600">
+                                                <Trash2 className="w-4 h-4"/>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="bg-white p-3 rounded border border-green-100">
+                                    <div className="flex gap-2 mb-2">
+                                        <select 
+                                            className="border p-2 rounded text-sm w-32"
+                                            value={newQuestionType}
+                                            onChange={e => setNewQuestionType(e.target.value as QuestionType)}
+                                        >
+                                            <option value={QuestionType.MCQ}>QCM</option>
+                                            <option value={QuestionType.BOOLEAN}>Vrai/Faux</option>
+                                        </select>
+                                        <input 
+                                            className="flex-1 border p-2 rounded text-sm" 
+                                            placeholder="Question..." 
+                                            value={newQuestionText}
+                                            onChange={e => setNewQuestionText(e.target.value)}
+                                        />
+                                    </div>
+                                    
+                                    {newQuestionType === QuestionType.MCQ && (
+                                        <div className="space-y-1 mb-2">
+                                            {newOptions.map((opt, i) => (
+                                                <div key={i} className="flex items-center gap-2">
+                                                    <input 
+                                                        type="radio" 
+                                                        name="correctOpt" 
+                                                        checked={correctOption === i} 
+                                                        onChange={() => setCorrectOption(i)}
+                                                    />
+                                                    <input 
+                                                        className="flex-1 border p-1 rounded text-xs" 
+                                                        placeholder={`Option ${i + 1}`}
+                                                        value={opt}
+                                                        onChange={e => {
+                                                            const n = [...newOptions];
+                                                            n[i] = e.target.value;
+                                                            setNewOptions(n);
+                                                        }}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {newQuestionType === QuestionType.BOOLEAN && (
+                                        <div className="flex gap-4 mb-2 ml-1">
+                                            <label className="flex items-center gap-2 text-sm">
+                                                <input type="radio" name="boolCorrect" checked={correctOption === 0} onChange={() => setCorrectOption(0)} /> Vrai
+                                            </label>
+                                            <label className="flex items-center gap-2 text-sm">
+                                                <input type="radio" name="boolCorrect" checked={correctOption === 1} onChange={() => setCorrectOption(1)} /> Faux
+                                            </label>
+                                        </div>
+                                    )}
+
+                                    <button onClick={addValidationQuestion} className="w-full bg-green-600 text-white py-1 rounded text-sm font-bold hover:bg-green-700">
+                                        Ajouter la question
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-2">
+                                <input 
+                                    type="checkbox" 
+                                    id="treasureToggle" 
+                                    checked={enableTreasure}
+                                    onChange={e => setEnableTreasure(e.target.checked)}
+                                    className="w-5 h-5 text-yellow-600 rounded focus:ring-yellow-500 cursor-pointer"
+                                />
+                                <label htmlFor="treasureToggle" className="font-bold text-gray-700 cursor-pointer">Activer la chasse au trésor</label>
+                            </div>
+
+                            {/* Treasure Hunt Config - Only if enabled */}
+                            {enableTreasure && (
+                                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mt-2">
+                                    <h3 className="font-bold text-yellow-800 flex items-center gap-2 mb-3">
+                                        <Gem className="w-5 h-5"/> {t('treasureHuntTitle')}
+                                    </h3>
+                                    <p className="text-xs text-yellow-700 mb-3">{t('treasureHuntDesc')}</p>
+                                    
+                                    <div className="flex gap-2 mb-3">
+                                        <input 
+                                            className="flex-1 border p-2 rounded text-sm uppercase" 
+                                            placeholder="CODE (ex: EINSTEIN)" 
+                                            value={newCode}
+                                            onChange={e => setNewCode(e.target.value)}
+                                        />
+                                        <select 
+                                            className="border p-2 rounded text-sm"
+                                            value={newCodeBadge}
+                                            onChange={e => setNewCodeBadge(e.target.value)}
+                                        >
+                                            <option value="badge_scholar">Savant</option>
+                                            <option value="badge_detective">Détective</option>
+                                            <option value="badge_explorer">Explorateur</option>
+                                            <option value="badge_genius">Génie</option>
+                                        </select>
+                                        <button onClick={addTreasureCode} className="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-700 font-bold">
+                                            <Plus className="w-4 h-4"/>
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        {treasureCodes.map((tc, idx) => (
+                                            <div key={idx} className="flex justify-between items-center bg-white p-2 rounded border border-yellow-100">
+                                                <div className="flex items-center gap-2">
+                                                    <Key className="w-4 h-4 text-yellow-500"/>
+                                                    <span className="font-mono font-bold">{tc.code}</span>
+                                                    <span className="text-xs text-gray-500">➜ {t(tc.badgeId)}</span>
+                                                </div>
+                                                <button onClick={() => removeTreasureCode(tc.code)} className="text-red-400 hover:text-red-600">
+                                                    <Trash2 className="w-4 h-4"/>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                         </div>
+                     )}
+
+                     <div>
+                        <label className="block text-sm font-medium mb-2">{t('assignedClasses')}</label>
+                        <div className="flex flex-wrap gap-2">
+                            {(user.assignedSections || []).map(cls => (
+                                <button 
+                                    key={cls}
+                                    onClick={() => setAssignedClasses(prev => prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls])}
+                                    className={`px-3 py-1 rounded text-sm border ${assignedClasses.includes(cls) ? 'bg-blue-600 text-white' : 'bg-gray-50 hover:bg-gray-100'}`}
+                                >
+                                    {cls}
+                                </button>
+                            ))}
+                        </div>
+                     </div>
+
+                     <div className="flex justify-end gap-3 pt-4 border-t">
+                         <button onClick={resetForm} className="px-4 py-2 text-gray-600">{t('cancel')}</button>
+                         <button onClick={handleSave} disabled={!title || !contentUrl} className="px-6 py-2 bg-green-600 text-white rounded disabled:opacity-50">{t('save')}</button>
+                     </div>
+                 </div>
+             </div>
+        );
+    }
+
     return (
-        <div className="animate-fade-in">
-            <div className="flex justify-end mb-6">
-                <button onClick={() => navigate('new')} className="bg-blue-600 text-white px-4 py-2 rounded shadow flex items-center gap-2 hover:bg-blue-700">
-                    <PlusCircle className="w-4 h-4"/> {t('createLesson')}
+        <div className="space-y-6 animate-fade-in">
+             <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-800">{t('myCourses')}</h2>
+                <button onClick={() => setIsCreating(true)} className="bg-orange-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-orange-600 shadow-sm">
+                    <Plus className="w-5 h-5"/> {t('createLesson')}
                 </button>
             </div>
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {lessons.map(l => (
-                    <div key={l.id} className="bg-white p-4 rounded-lg shadow border flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <h3 className="font-bold text-lg flex items-center gap-2">
-                                {l.type === LessonType.VIDEO ? <Video className="w-4 h-4 text-red-500"/> : <File className="w-4 h-4 text-blue-500"/>}
-                                {l.title}
-                            </h3>
-                            <p className="text-sm text-gray-500">{l.assignedClasses.join(', ')}</p>
+                    <div key={l.id} className="bg-white rounded-xl shadow-sm border p-5 group relative">
+                        {/* Live Students Badge (Real-Time) */}
+                        {l.type === LessonType.INTERACTIVE && (liveStudentsMap[l.id] || 0) > 0 && (
+                            <div className="absolute top-4 right-14 bg-red-600 text-white px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 animate-pulse shadow-sm z-10">
+                                <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                                Direct: {liveStudentsMap[l.id]}
+                            </div>
+                        )}
+
+                        <div className="flex justify-between items-start mb-2">
+                             <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                 l.type === 'VIDEO' ? 'bg-red-100 text-red-700' : 
+                                 l.type === 'INTERACTIVE' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'
+                             }`}>
+                                 {l.type === 'VIDEO' ? t('video') : l.type === 'INTERACTIVE' ? 'Interactif' : t('document')}
+                             </span>
+                             <div className="flex gap-2">
+                                <button onClick={() => handleEdit(l)} className="text-gray-400 hover:text-blue-500"><Edit className="w-4 h-4"/></button>
+                                <button onClick={() => handleDelete(l.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
+                             </div>
                         </div>
-                        <div className="flex gap-2 w-full md:w-auto">
-                            <button onClick={() => toggleLessonStatus(l)} className={`text-xs px-3 py-2 border rounded flex-1 md:flex-none transition ${l.status === 'PUBLISHED' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50'}`}>
-                                {l.status === 'PUBLISHED' ? t('published') : t('draft')}
-                            </button>
-                            <button onClick={() => deleteLesson(l.id)} className="text-red-500 p-2 hover:bg-red-50 rounded"><Trash className="w-4 h-4"/></button>
+                        <h3 className="font-bold text-lg mb-2">{l.title}</h3>
+                        <p className="text-sm text-gray-500 line-clamp-2 mb-4">{l.description}</p>
+                        <div className="flex justify-between items-center text-xs text-gray-400">
+                             <span>{l.assignedClasses.join(', ')}</span>
+                             <a href={l.contentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
+                                 {t('viewContent')} <ExternalLink className="w-3 h-3"/>
+                             </a>
                         </div>
+                        {l.availableFrom && (
+                            <div className="mt-2 text-xs text-gray-500 flex items-center gap-1">
+                                <Calendar className="w-3 h-3"/> Dispo: {new Date(l.availableFrom).toLocaleDateString()}
+                            </div>
+                        )}
+                        {l.treasureCodes && l.treasureCodes.length > 0 && l.hasTreasureHunt && (
+                            <div className="mt-3 pt-3 border-t flex items-center gap-1 text-xs text-yellow-600 font-bold">
+                                <Gem className="w-3 h-3"/> {l.treasureCodes.length} trésors cachés
+                            </div>
+                        )}
+                        {l.questions && l.questions.length > 0 && (
+                            <div className="mt-2 pt-2 border-t flex items-center gap-1 text-xs text-green-600 font-bold">
+                                <HelpCircle className="w-3 h-3"/> {l.questions.length} questions
+                            </div>
+                        )}
                     </div>
                 ))}
-                 {lessons.length === 0 && <p className="text-center text-gray-400 py-10">{t('noCourses')}</p>}
+                 {lessons.length === 0 && (
+                    <div className="col-span-full text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+                        <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3"/>
+                        <p className="text-gray-500">{t('noCourses')}</p>
+                    </div>
+                )}
             </div>
         </div>
     );
 };
 
-const StudentsView: React.FC<{ user: User }> = ({ user }) => {
+const PlanningView: React.FC<{ user: User }> = ({ user }) => {
     const { t } = useLanguage();
-    const [classFilter, setClassFilter] = useState('');
-    const [students, setStudents] = useState<User[]>([]);
-    const assignedClasses = user.assignedSections || [];
+    const [events, setEvents] = useState<SchoolEvent[]>([]);
+    
+    // Form
+    const [title, setTitle] = useState('');
+    const [date, setDate] = useState('');
+    const [type, setType] = useState<'EXAM' | 'TEST' | 'HOMEWORK' | 'OTHER'>('EXAM');
+    const [assignedClasses, setAssignedClasses] = useState<string[]>([]);
 
     useEffect(() => {
-        setStudents(StorageService.getUsers().filter(u => u.role === UserRole.STUDENT));
+        setEvents(StorageService.getEventsByProf(user.id));
+    }, [user.id]);
+
+    const handleCreate = () => {
+        if (!title || !date || assignedClasses.length === 0) {
+            alert("Veuillez remplir tous les champs");
+            return;
+        }
+
+        const newEvent: SchoolEvent = {
+            id: `evt-${Date.now()}`,
+            professorId: user.id,
+            professorName: user.name,
+            title,
+            date,
+            type,
+            assignedClasses,
+            createdAt: new Date().toISOString()
+        };
+
+        StorageService.saveEvent(newEvent);
+        setEvents(prev => [...prev, newEvent]);
+        
+        // Reset
+        setTitle('');
+        setDate('');
+        setAssignedClasses([]);
+    };
+
+    const handleDelete = (id: string) => {
+        if(confirm("Supprimer cet événement ?")) {
+            StorageService.deleteEvent(id);
+            setEvents(prev => prev.filter(e => e.id !== id));
+        }
+    };
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
+            {/* Create Form */}
+            <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border h-fit">
+                <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-600"/> Planifier un événement
+                </h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Titre</label>
+                        <input className="w-full border rounded p-2" placeholder="Ex: Examen Final" value={title} onChange={e => setTitle(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Type</label>
+                        <select className="w-full border rounded p-2" value={type} onChange={e => setType(e.target.value as any)}>
+                            <option value="EXAM">Examen Final</option>
+                            <option value="TEST">Contrôle Continu</option>
+                            <option value="HOMEWORK">Devoir Maison</option>
+                            <option value="OTHER">Autre</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Date et Heure</label>
+                        <input type="datetime-local" className="w-full border rounded p-2" value={date} onChange={e => setDate(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-2">Classes concernées</label>
+                        <div className="flex flex-wrap gap-2">
+                            {(user.assignedSections || []).map(cls => (
+                                <button 
+                                    key={cls}
+                                    onClick={() => setAssignedClasses(prev => prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls])}
+                                    className={`px-3 py-1 rounded text-xs border ${assignedClasses.includes(cls) ? 'bg-blue-600 text-white' : 'bg-gray-50 hover:bg-gray-100'}`}
+                                >
+                                    {cls}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <button onClick={handleCreate} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 font-bold">Enregistrer</button>
+                </div>
+            </div>
+
+            {/* List */}
+            <div className="lg:col-span-2 space-y-4">
+                <h3 className="font-bold text-lg flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-blue-600"/> Agenda ({events.length})
+                </h3>
+                {events.length === 0 && <p className="text-gray-500 italic">Aucun événement planifié.</p>}
+                
+                <div className="space-y-3">
+                    {events.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(evt => (
+                        <div key={evt.id} className="bg-white p-4 rounded-lg border shadow-sm flex justify-between items-center group">
+                            <div className="flex gap-4 items-center">
+                                <div className={`w-16 text-center p-2 rounded border ${
+                                    evt.type === 'EXAM' ? 'bg-red-50 border-red-200 text-red-700' : 
+                                    evt.type === 'TEST' ? 'bg-orange-50 border-orange-200 text-orange-700' : 
+                                    'bg-blue-50 border-blue-200 text-blue-700'
+                                }`}>
+                                    <div className="text-xs font-bold uppercase">{new Date(evt.date).toLocaleString('fr', {month:'short'})}</div>
+                                    <div className="text-xl font-black">{new Date(evt.date).getDate()}</div>
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-gray-800">{evt.title}</h4>
+                                    <div className="text-xs text-gray-500 flex gap-2 mt-1">
+                                        <span>{new Date(evt.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                        <span>•</span>
+                                        <span className="font-medium bg-gray-100 px-1 rounded">{evt.assignedClasses.join(', ')}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button onClick={() => handleDelete(evt.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                                <Trash2 className="w-5 h-5"/>
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const StudentsView: React.FC<{ user: User, onUpdate: (u: User) => void }> = ({ user, onUpdate }) => {
+    const { t } = useLanguage();
+    const [students, setStudents] = useState<User[]>([]);
+    const [filterClass, setFilterClass] = useState('');
+    const [showPasswords, setShowPasswords] = useState(false);
+    const [newClass, setNewClass] = useState('');
+    const [isIndividual] = useState(user.accountType === 'INDIVIDUAL');
+
+    useEffect(() => {
+        const loadStudents = async () => {
+            const allUsers = await ApiService.getUsers();
+            setStudents(allUsers.filter(u => u.role === UserRole.STUDENT));
+        };
+        loadStudents();
     }, []);
 
     const filteredStudents = students.filter(s => {
         if (s.school !== user.school || s.city !== user.city) return false;
-        const sClasses = s.enrolledClasses || [];
-        const isInProfClasses = sClasses.some(c => assignedClasses.includes(c));
-        if (!isInProfClasses) return false;
-        if (classFilter) return sClasses.includes(classFilter);
+        
+        const myClasses = user.assignedSections || [];
+        const studentClasses = s.enrolledClasses || [];
+        const isMyStudent = studentClasses.some(c => myClasses.includes(c));
+        
+        if (!isMyStudent) return false;
+        if (filterClass) return studentClasses.includes(filterClass);
         return true;
     });
 
+    const handleAddClass = async () => {
+        if (!newClass.trim()) return;
+        const current = user.assignedSections || [];
+        if (current.includes(newClass.trim())) return;
+        
+        const updated = [...current, newClass.trim()];
+        await ApiService.updateUser(user.id, { assignedSections: updated });
+        onUpdate({ ...user, assignedSections: updated });
+        setNewClass('');
+    };
+
+    const handleImport = (e: React.ChangeEvent<HTMLInputElement>, targetClass: string) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            const bstr = evt.target?.result;
+            const wb = XLSX.read(bstr, { type: 'binary' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+            
+            let count = 0;
+            for (const row of data.slice(1)) {
+                // @ts-ignore
+                const name = String(row[0] || '').trim();
+                if (name) {
+                    const username = name.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 8) + Math.floor(Math.random()*1000);
+                    const password = Math.floor(100000 + Math.random() * 900000).toString();
+                    await ApiService.createUser({
+                        id: `stu-${Date.now()}-${Math.random()}`,
+                        name, username, password, readablePassword: password,
+                        role: UserRole.STUDENT,
+                        school: user.school, city: user.city,
+                        enrolledClasses: [targetClass],
+                        accountType: 'INDIVIDUAL'
+                    });
+                    count++;
+                }
+            }
+            alert(`${count} ${t('studentsAdded')}`);
+            const allUsers = await ApiService.getUsers();
+            setStudents(allUsers.filter(u => u.role === UserRole.STUDENT));
+        };
+        reader.readAsBinaryString(file);
+    };
+
     return (
-        <div className="bg-white p-6 rounded-lg shadow animate-fade-in">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-bold">{t('studentsList')}</h2>
-                <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-gray-500"/>
-                    <select className="border rounded-md p-1.5 text-sm" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+        <div className="space-y-6 animate-fade-in">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                <h2 className="text-2xl font-bold text-gray-800">{t('myStudents')}</h2>
+                <div className="flex gap-2">
+                    <select className="border rounded p-2 text-sm" value={filterClass} onChange={e => setFilterClass(e.target.value)}>
                         <option value="">{t('allClasses')}</option>
-                        {assignedClasses.map(cls => <option key={cls} value={cls}>{cls}</option>)}
+                        {(user.assignedSections || []).map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
             </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-start text-sm">
-                    <thead className="bg-gray-50"><tr><th className="p-3 text-start">{t('student')}</th><th className="p-3 text-start">Class</th><th className="p-3 text-start">{t('username')}</th></tr></thead>
+
+            {isIndividual && (
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-6">
+                    <h3 className="font-bold text-blue-800 mb-2 text-sm flex items-center gap-2"><Settings className="w-4 h-4"/> Gestion Classes (Indépendant)</h3>
+                    <div className="flex gap-2 mb-4">
+                        <input className="border rounded p-2 text-sm" placeholder="Nom de classe..." value={newClass} onChange={e => setNewClass(e.target.value)} />
+                        <button onClick={handleAddClass} className="bg-blue-600 text-white px-3 py-1 rounded text-sm">{t('addClass')}</button>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {(user.assignedSections || []).map(cls => (
+                            <label key={cls} className="bg-white p-2 rounded border flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition">
+                                <span className="font-bold text-gray-700 mb-1">{cls}</span>
+                                <span className="text-[10px] text-blue-500 flex items-center gap-1"><Upload className="w-3 h-3"/> Import Excel</span>
+                                <input type="file" className="hidden" accept=".xlsx" onChange={(e) => handleImport(e, cls)} />
+                            </label>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 border-b">
+                        <tr>
+                            <th className="p-4">{t('student')}</th>
+                            <th className="p-4">{t('className')}</th>
+                            <th className="p-4">{t('username')}</th>
+                            <th className="p-4">
+                                <button onClick={() => setShowPasswords(!showPasswords)} className="flex items-center gap-1 text-gray-500 hover:text-blue-600">
+                                    {t('password')} {showPasswords ? <EyeOff className="w-3 h-3"/> : <Eye className="w-3 h-3"/>}
+                                </button>
+                            </th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {filteredStudents.map(s => (
-                            <tr key={s.id} className="border-b">
-                                <td className="p-3 font-medium">{s.name}</td>
-                                <td className="p-3">{s.enrolledClasses?.filter(c => assignedClasses.includes(c)).join(', ')}</td>
-                                <td className="p-3 text-gray-600">{s.username}</td>
+                            <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
+                                <td className="p-4 font-medium">{s.name}</td>
+                                <td className="p-4">{s.enrolledClasses?.join(', ')}</td>
+                                <td className="p-4 font-mono text-gray-600">{s.username}</td>
+                                <td className="p-4 font-mono text-gray-500">{showPasswords ? (s.readablePassword || s.password) : '••••••'}</td>
                             </tr>
                         ))}
-                        {filteredStudents.length === 0 && <tr><td colSpan={3} className="p-4 text-center text-gray-400">{t('noData')}</td></tr>}
+                        {filteredStudents.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-gray-400">{t('noResults')}</td></tr>}
                     </tbody>
                 </table>
             </div>
@@ -182,117 +975,47 @@ const StudentsView: React.FC<{ user: User }> = ({ user }) => {
 
 const ResultsView: React.FC<{ user: User }> = ({ user }) => {
     const { t } = useLanguage();
-    const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [results, setResults] = useState<QuizResult[]>([]);
-    const [students, setStudents] = useState<User[]>([]);
-    const [selectedResultClass, setSelectedResultClass] = useState<string>('');
-    const assignedClasses = user.assignedSections || [];
+    const [quizzes, setQuizzes] = useState<Quiz[]>([]);
 
     useEffect(() => {
-        setQuizzes(StorageService.getQuizzesByProf(user.id));
         setResults(StorageService.getResults());
-        setStudents(StorageService.getUsers().filter(u => u.role === UserRole.STUDENT));
-        if (assignedClasses.length > 0) setSelectedResultClass(assignedClasses[0]);
+        setQuizzes(StorageService.getQuizzesByProf(user.id));
     }, [user.id]);
 
-    const calculateQuizStats = (quiz: Quiz) => {
-        const quizResults = results.filter(r => r.quizId === quiz.id);
-        if (quizResults.length === 0) return null;
-        const totalScore = quizResults.reduce((acc, r) => acc + (r.score / r.maxScore) * 100, 0);
-        const avgScore = totalScore / quizResults.length;
-        const maxScore = Math.max(...quizResults.map(r => r.score));
-        return { participants: quizResults.length, avg: Math.round(avgScore), best: maxScore };
-    };
-
-    const exportClassResultsMatrix = () => {
-        if (!selectedResultClass) return;
-        const classStudents = students.filter(s => s.school === user.school && s.city === user.city && s.enrolledClasses?.includes(selectedResultClass));
-        const classQuizzes = quizzes.filter(q => q.assignedClasses.includes(selectedResultClass) || q.assignedClasses.length === 0);
-        const data = classStudents.map(s => {
-            const row: any = { [t('student')]: s.name };
-            classQuizzes.forEach(q => {
-                 const res = results.find(r => r.quizId === q.id && r.studentId === s.id);
-                 row[q.title] = res ? `${res.score}/${res.maxScore}` : '-';
-            });
-            return row;
-        });
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, selectedResultClass);
-        XLSX.writeFile(wb, `Resultats_${selectedResultClass}.xlsx`);
-    };
+    const myResults = results.filter(r => quizzes.some(q => q.id === r.quizId));
 
     return (
         <div className="space-y-6 animate-fade-in">
-             <div className="bg-white p-6 rounded-lg shadow border-t-4 border-indigo-500">
-                <h3 className="font-bold text-gray-800 mb-4 text-lg">{t('quizPerformance')}</h3>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-start">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="p-3 text-start">{t('quizTitle')}</th>
-                                <th className="p-3 text-center">{t('participants')}</th>
-                                <th className="p-3 text-center">{t('avgScore')}</th>
-                                <th className="p-3 text-center">{t('bestScore')}</th>
+            <h2 className="text-2xl font-bold text-gray-800">{t('results')}</h2>
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 border-b">
+                        <tr>
+                            <th className="p-4">{t('student')}</th>
+                            <th className="p-4">Quiz</th>
+                            <th className="p-4 text-center">Score</th>
+                            <th className="p-4 text-center">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {myResults.map(r => (
+                            <tr key={r.id} className="border-b last:border-0 hover:bg-gray-50">
+                                <td className="p-4 font-medium">{r.studentName}</td>
+                                <td className="p-4">{quizzes.find(q => q.id === r.quizId)?.title || 'Quiz Inconnu'}</td>
+                                <td className="p-4 text-center">
+                                    <span className={`font-bold ${r.score >= (r.maxScore / 2) ? 'text-green-600' : 'text-red-600'}`}>
+                                        {r.score} / {r.maxScore}
+                                    </span>
+                                </td>
+                                <td className="p-4 text-center text-gray-500">
+                                    {new Date(r.submittedAt).toLocaleDateString()}
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            {quizzes.map(q => {
-                                const stats = calculateQuizStats(q);
-                                if (!stats) return null;
-                                return (
-                                    <tr key={q.id} className="border-b last:border-0 hover:bg-gray-50">
-                                        <td className="p-3 font-medium text-gray-800">{q.title}</td>
-                                        <td className="p-3 text-center">{stats.participants}</td>
-                                        <td className="p-3 text-center font-bold text-blue-600">{stats.avg}%</td>
-                                        <td className="p-3 text-center text-green-600">{stats.best} pts</td>
-                                    </tr>
-                                );
-                            })}
-                            {quizzes.every(q => !calculateQuizStats(q)) && <tr><td colSpan={4} className="p-6 text-center text-gray-400">{t('noData')}</td></tr>}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow border-t-4 border-purple-500">
-                <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-                    <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2"><Table className="w-5 h-5"/> {t('resultsByClass')}</h3>
-                    <div className="flex gap-2 w-full md:w-auto">
-                        <select className="border rounded p-2 text-sm bg-white flex-1 md:flex-none" value={selectedResultClass} onChange={(e) => setSelectedResultClass(e.target.value)}>
-                            <option value="" disabled>{t('selectClassResults')}</option>
-                            {assignedClasses.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <button onClick={exportClassResultsMatrix} disabled={!selectedResultClass} className="bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1">
-                            <Download className="w-4 h-4"/> {t('exportExcel')}
-                        </button>
-                    </div>
-                </div>
-                {selectedResultClass && (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left border-collapse">
-                            <thead className="bg-purple-50">
-                                <tr>
-                                    <th className="p-3 border sticky left-0 bg-purple-50 min-w-[150px]">{t('student')}</th>
-                                    {quizzes.filter(q => q.assignedClasses.includes(selectedResultClass) || q.assignedClasses.length === 0).map(q => (
-                                        <th key={q.id} className="p-3 border text-center whitespace-nowrap min-w-[100px]">{q.title}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {students.filter(s => s.school === user.school && s.city === user.city && s.enrolledClasses?.includes(selectedResultClass)).map(s => (
-                                    <tr key={s.id} className="hover:bg-gray-50">
-                                        <td className="p-3 border font-medium sticky left-0 bg-white">{s.name}</td>
-                                        {quizzes.filter(q => q.assignedClasses.includes(selectedResultClass) || q.assignedClasses.length === 0).map(q => {
-                                            const res = results.find(r => r.quizId === q.id && r.studentId === s.id);
-                                            return <td key={q.id} className="p-3 border text-center">{res ? <span className={`font-bold ${res.score >= (res.maxScore/2) ? 'text-green-600' : 'text-red-600'}`}>{res.score}/{res.maxScore}</span> : <span className="text-gray-300">-</span>}</td>;
-                                        })}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                        ))}
+                        {myResults.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-gray-400">{t('noData')}</td></tr>}
+                    </tbody>
+                </table>
             </div>
         </div>
     );
@@ -300,13 +1023,16 @@ const ResultsView: React.FC<{ user: User }> = ({ user }) => {
 
 const StaffRoomView: React.FC<{ user: User }> = ({ user }) => {
     const { t } = useLanguage();
-    const staffChatId = `chat_${user.school}_${user.city}`;
+    const staffChatId = `chat_${user.school || 'default'}_${user.city || 'default'}`;
     const [staffMessages, setStaffMessages] = useState<Message[]>([]);
     const [newStaffMessage, setNewStaffMessage] = useState('');
 
     useEffect(() => {
         setStaffMessages(StorageService.getGroupMessages(staffChatId));
-        localStorage.setItem(`lastStaffRead_${user.id}`, Date.now().toString());
+        const interval = setInterval(() => {
+            setStaffMessages(StorageService.getGroupMessages(staffChatId));
+        }, 3000);
+        return () => clearInterval(interval);
     }, [user.id, staffChatId]);
 
     const handleSend = (e: React.FormEvent) => {
@@ -314,19 +1040,19 @@ const StaffRoomView: React.FC<{ user: User }> = ({ user }) => {
         if (!newStaffMessage.trim()) return;
         const msg: Message = { id: `smsg-${Date.now()}`, senderId: user.id, senderName: user.name, receiverId: staffChatId, content: newStaffMessage, timestamp: new Date().toISOString(), read: false };
         StorageService.sendMessage(msg);
-        setStaffMessages([...staffMessages, msg]);
+        setStaffMessages(prev => [...prev, msg]);
         setNewStaffMessage('');
     };
 
     return (
-        <div className="bg-white rounded-lg shadow h-[600px] flex flex-col animate-fade-in">
+        <div className="bg-white rounded-lg shadow h-[600px] flex flex-col animate-fade-in border">
             <div className="p-4 border-b bg-indigo-50 font-bold text-indigo-800 flex items-center gap-2">
                 <Coffee className="w-5 h-5"/> {t('staffRoom')} - {user.school}
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {staffMessages.map(m => (
                     <div key={m.id} className={`flex ${m.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[70%] p-3 rounded-lg text-sm shadow-sm ${m.senderId === user.id ? 'bg-indigo-600 text-white' : 'bg-gray-100'}`}>
+                        <div className={`max-w-[70%] p-3 rounded-lg text-sm shadow-sm ${m.senderId === user.id ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
                             <div className="text-xs opacity-75 mb-1 font-bold">{m.senderName}</div>
                             {m.content}
                         </div>
@@ -341,87 +1067,76 @@ const StaffRoomView: React.FC<{ user: User }> = ({ user }) => {
     );
 };
 
-const ProfileView: React.FC<{ user: User, onUpdate: (u: User) => void }> = ({ user, onUpdate }) => {
-    const { t } = useLanguage();
-    const [form, setForm] = useState({ email: user.email || '', phone: user.phone || '' });
-    const stats = StorageService.getSchoolStats(user.school!, user.city!);
-
-    const handleSave = () => {
-        const updatedUser: User = { ...user, email: form.email, phone: form.phone };
-        StorageService.saveUser(updatedUser);
-        onUpdate(updatedUser);
-        alert(t('profileSaved'));
-    };
-
-    return (
-        <div className="bg-white p-6 rounded-lg shadow max-w-2xl mx-auto space-y-4 animate-fade-in">
-            <h2 className="text-2xl font-bold">{t('profile')}</h2>
-            <div className="p-4 bg-gray-50 rounded border">
-                <p className="text-sm text-gray-500">{t('school')}</p>
-                <p className="font-bold">{user.school} ({user.city})</p>
-                <p className="text-xs text-blue-600 mt-2">{t('schoolStats')}: {stats.profCount} Profs, {stats.totalResults} Engagements.</p>
-            </div>
-            <input className="w-full border p-2 rounded" placeholder={t('email')} value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
-            <input className="w-full border p-2 rounded" placeholder={t('phone')} value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} />
-            <button onClick={handleSave} className="bg-blue-600 text-white px-6 py-2 rounded">{t('save')}</button>
-        </div>
-    );
-};
-
 const MessagesView: React.FC<{ user: User }> = ({ user }) => {
     const { t } = useLanguage();
-    const [conversations, setConversations] = useState<string[]>([]);
-    const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+    const [contacts, setContacts] = useState<User[]>([]);
+    const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
 
     useEffect(() => {
-        setConversations(StorageService.getConversationsForUser(user.id));
+        const loadData = async () => {
+            const allUsers = await ApiService.getUsers();
+            
+            // Get Coordinators (Always visible)
+            const coords = allUsers.filter(u => 
+                u.role === UserRole.COORDINATOR && 
+                u.school === user.school && 
+                u.city === user.city
+            );
+            
+            // Get conversations
+            const conversationIds = StorageService.getConversationsForUser(user.id);
+            const otherUsers = conversationIds
+                .filter(id => !coords.some(c => c.id === id))
+                .map(id => allUsers.find(u => u.id === id) || { id, name: 'Utilisateur Inconnu', role: UserRole.STUDENT } as User);
+
+            setContacts([...coords, ...otherUsers]);
+        };
+        loadData();
     }, [user.id]);
 
     useEffect(() => {
-        if (selectedStudentId) {
-            const msgs = StorageService.getMessages(user.id, selectedStudentId);
-            setMessages(msgs);
-            const unreadIds = msgs.filter(m => m.senderId === selectedStudentId && !m.read).map(m => m.id);
-            if (unreadIds.length > 0) StorageService.markAsRead(unreadIds);
+        if (selectedContactId) {
+            setMessages(StorageService.getMessages(user.id, selectedContactId));
         }
-    }, [selectedStudentId, user.id]);
+    }, [selectedContactId, user.id]);
 
     const handleSend = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newMessage.trim() || !selectedStudentId) return;
-        const msg: Message = { id: `msg-${Date.now()}`, senderId: user.id, senderName: user.name, receiverId: selectedStudentId, content: newMessage, timestamp: new Date().toISOString(), read: false };
+        if (!newMessage.trim() || !selectedContactId) return;
+        const msg: Message = { id: `msg-${Date.now()}`, senderId: user.id, senderName: user.name, receiverId: selectedContactId, content: newMessage, timestamp: new Date().toISOString(), read: false };
         StorageService.sendMessage(msg);
-        setMessages([...messages, msg]);
+        setMessages(prev => [...prev, msg]);
         setNewMessage('');
     };
 
     return (
         <div className="bg-white rounded-lg shadow h-[600px] flex overflow-hidden border animate-fade-in">
              <div className="w-1/3 border-e bg-gray-50 flex flex-col">
-                <div className="p-4 border-b font-bold text-gray-700">{t('startConversation')}</div>
+                <div className="p-4 border-b font-bold text-gray-700">{t('messages')}</div>
                 <div className="flex-1 overflow-y-auto">
-                     {conversations.length === 0 && <p className="p-4 text-sm text-gray-500 text-center">{t('noMessages')}</p>}
-                     {conversations.map(userId => {
-                        const userObj = StorageService.getUsers().find(u => u.id === userId);
-                        if (!userObj) return null;
-                        const hasUnread = StorageService.getMessages(user.id, userId).some(m => m.senderId === userId && !m.read);
-                        return (
-                            <button key={userId} onClick={() => setSelectedStudentId(userId)} className={`w-full p-4 text-start hover:bg-blue-50 transition border-b flex justify-between items-center ${selectedStudentId === userId ? 'bg-blue-100' : ''}`}>
-                                <div><div className="font-medium">{userObj.name}</div><div className="text-xs text-gray-500">{t(userObj.role.toLowerCase())}</div></div>
-                                {hasUnread && <span className="w-2 h-2 bg-green-500 rounded-full"></span>}
-                            </button>
-                        );
-                     })}
+                     {contacts.length === 0 && <p className="p-4 text-sm text-gray-500 text-center">{t('noMessages')}</p>}
+                     {contacts.map(contact => (
+                        <button 
+                            key={contact.id} 
+                            onClick={() => setSelectedContactId(contact.id)} 
+                            className={`w-full p-4 text-start hover:bg-blue-50 transition border-b flex justify-between items-center ${selectedContactId === contact.id ? 'bg-blue-100' : ''}`}
+                        >
+                            <div>
+                                <div className="font-medium">{contact.name}</div>
+                                <div className="text-xs text-gray-500">{t(contact.role.toLowerCase())}</div>
+                            </div>
+                        </button>
+                     ))}
                 </div>
              </div>
              <div className="w-2/3 flex flex-col bg-white">
-                  {selectedStudentId ? (
+                  {selectedContactId ? (
                        <>
                             <div className="p-4 border-b font-bold bg-gray-50 flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                {StorageService.getUsers().find(u => u.id === selectedStudentId)?.name}
+                                {contacts.find(u => u.id === selectedContactId)?.name}
                             </div>
                             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                                 {messages.map(m => (
@@ -434,294 +1149,232 @@ const MessagesView: React.FC<{ user: User }> = ({ user }) => {
                                 ))}
                             </div>
                             <form onSubmit={handleSend} className="p-4 border-t flex gap-2">
-                                <input className="flex-1 border rounded-full px-4 py-2" placeholder={t('typeMessage')} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+                                <input className="flex-1 border rounded-full px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder={t('typeMessage')} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
                                 <button type="submit" className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700"><Send className="w-5 h-5 rtl:flip" /></button>
                             </form>
                        </>
                    ) : (
-                       <div className="flex-1 flex items-center justify-center text-gray-400"><p>{t('selectStudent')}</p></div>
+                       <div className="flex-1 flex items-center justify-center text-gray-400"><p>{t('selectProf')}</p></div>
                    )}
              </div>
          </div>
     );
 };
 
-const WhiteboardView: React.FC<{ user: User }> = ({ user }) => {
+const ProfileView: React.FC<{ user: User }> = ({ user }) => {
     const { t } = useLanguage();
-    const [sessions, setSessions] = useState<WhiteboardSession[]>([]);
-    const [newTitle, setNewTitle] = useState('');
-    const [activeSession, setActiveSession] = useState<string | null>(null);
+    const [form, setForm] = useState({ email: user.email || '', phone: user.phone || '' });
 
-    useEffect(() => {
-        // Filter my whiteboards
-        const all = StorageService.getWhiteboards();
-        setSessions(all.filter(w => w.hostId === user.id));
-    }, [user.id]);
+    const handleSave = () => {
+        // Mock update in storage
+        const updatedUser: User = { ...user, email: form.email, phone: form.phone };
+        StorageService.saveUser(updatedUser);
+        alert(t('profileSaved'));
+    };
 
-    const handleCreateSession = () => {
-        if (!newTitle.trim()) return;
-        
-        // Simple random key 6 chars
+    return (
+        <div className="bg-white p-6 rounded-lg shadow max-w-2xl mx-auto space-y-4 animate-fade-in">
+            <h2 className="text-2xl font-bold">{t('profile')}</h2>
+            <div className="p-4 bg-gray-50 rounded border">
+                <p className="text-sm text-gray-500">{t('school')}</p>
+                <p className="font-bold">{user.school} ({user.city})</p>
+                <p className="text-xs text-blue-600 mt-2">{user.role}</p>
+            </div>
+            <div>
+                <label className="block text-sm font-medium mb-1">{t('email')}</label>
+                <input className="w-full border p-2 rounded" placeholder="email@exemple.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+            </div>
+            <div>
+                <label className="block text-sm font-medium mb-1">{t('phone')}</label>
+                <input className="w-full border p-2 rounded" placeholder="06..." value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} />
+            </div>
+            <button onClick={handleSave} className="bg-blue-600 text-white px-6 py-2 rounded">{t('save')}</button>
+        </div>
+    );
+};
+
+// Main Dashboard Component
+const ProfessorDashboard: React.FC<{ user: User, onLogout: () => void }> = ({ user, onLogout }) => {
+    const { t, dir } = useLanguage();
+    const location = useLocation();
+    const [currentUser, setCurrentUser] = useState<User>(user);
+    
+    // Whiteboard Config State
+    const [showWhiteboardConfig, setShowWhiteboardConfig] = useState(false);
+    const [wbTitle, setWbTitle] = useState(`Cours de ${user.name}`);
+    const [wbClasses, setWbClasses] = useState<string[]>([]);
+    const [wbSessionId, setWbSessionId] = useState<string | null>(null);
+
+    const isActive = (path: string) => location.pathname.includes(`/professor/${path}`);
+
+    const handleCreateWhiteboardClick = () => {
+        setShowWhiteboardConfig(true);
+        setWbClasses([]);
+    };
+
+    const startWhiteboardSession = () => {
         const key = Math.random().toString(36).substring(2, 8).toUpperCase();
-        
-        const newSession: WhiteboardSession = {
+        const session = {
             id: `wb-${Date.now()}`,
-            hostId: user.id,
-            hostName: user.name,
-            title: newTitle,
+            hostId: currentUser.id,
+            hostName: currentUser.name,
+            title: wbTitle,
             accessKey: key,
             isActive: true,
             createdAt: new Date().toISOString(),
             strokes: [],
             messages: []
         };
-        
-        StorageService.saveWhiteboard(newSession);
-        setActiveSession(newSession.id);
-        setNewTitle('');
+        StorageService.saveWhiteboard(session);
+        setWbSessionId(session.id);
+        setShowWhiteboardConfig(false);
     };
 
-    if (activeSession) {
-        return <WhiteboardRoom user={user} sessionId={activeSession} onExit={() => { setActiveSession(null); setSessions(StorageService.getWhiteboards().filter(w => w.hostId === user.id)); }} />;
+    if (wbSessionId) {
+        return <WhiteboardRoom user={currentUser} sessionId={wbSessionId} onExit={() => setWbSessionId(null)} />;
     }
 
     return (
-        <div className="animate-fade-in">
-             <div className="bg-white p-6 rounded-lg shadow mb-6">
-                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><PenTool className="w-6 h-6"/> {t('createRoom')}</h2>
-                 <div className="flex gap-4">
-                     <input 
-                        className="flex-1 border rounded p-2" 
-                        placeholder={t('roomTitle')}
-                        value={newTitle}
-                        onChange={e => setNewTitle(e.target.value)}
-                     />
-                     <button onClick={handleCreateSession} className="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700 font-bold">
-                         {t('start')}
-                     </button>
-                 </div>
-             </div>
+        <div className="min-h-screen bg-gray-50 flex" dir={dir}>
+            {/* Sidebar */}
+            <aside className="w-64 bg-white border-r hidden md:flex flex-col z-10">
+                <div className="p-6 border-b flex items-center gap-3 bg-blue-600 text-white">
+                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                        <FileText className="w-6 h-6 text-white"/>
+                    </div>
+                    <div>
+                        <h1 className="font-bold font-logo text-lg tracking-tight">Tinmel</h1>
+                        <p className="text-xs text-blue-100">{t('staffSpace')}</p>
+                    </div>
+                </div>
+                
+                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                    {[
+                        { id: 'stats', icon: LayoutDashboard, label: t('schoolStatsView') },
+                        { id: 'quizzes', icon: FileText, label: t('myQuizzes') },
+                        { id: 'lessons', icon: BookOpen, label: t('myCourses') },
+                        { id: 'planning', icon: Calendar, label: "Agenda" },
+                        { id: 'students', icon: UserPlus, label: t('myStudents') }, 
+                        { id: 'whiteboard', icon: PenTool, label: t('whiteboard'), onClick: handleCreateWhiteboardClick },
+                        { id: 'results', icon: BarChart, label: t('results') },
+                        { id: 'messages', icon: MessageCircle, label: t('messages') },
+                        { id: 'staff-room', icon: Coffee, label: t('staffRoom') }, 
+                        { id: 'profile', icon: Settings, label: t('profile') },
+                    ].map(item => (
+                        item.onClick ? (
+                            <button 
+                                key={item.id}
+                                onClick={item.onClick}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-blue-600 rounded-lg transition-colors text-start"
+                            >
+                                <item.icon className="w-5 h-5"/> {item.label}
+                            </button>
+                        ) : (
+                            <Link 
+                                key={item.id}
+                                to={`/professor/${item.id}`}
+                                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${isActive(item.id) ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600'}`}
+                            >
+                                <item.icon className="w-5 h-5"/> {item.label}
+                            </Link>
+                        )
+                    ))}
+                </nav>
 
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                 {sessions.map(s => (
-                     <div key={s.id} className="bg-white p-4 rounded-lg shadow border hover:shadow-md transition">
-                         <div className="flex justify-between items-start mb-2">
-                             <h3 className="font-bold text-lg">{s.title}</h3>
-                             {s.isActive ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded animate-pulse">LIVE</span> : <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded">Closed</span>}
+                <div className="p-4 border-t">
+                     <button onClick={onLogout} className="flex items-center gap-2 text-red-600 hover:bg-red-50 w-full px-4 py-2 rounded-lg transition-colors text-sm font-medium">
+                        <LogOut className="w-4 h-4 rtl:flip"/> {t('logout')}
+                    </button>
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <main className="flex-1 flex flex-col h-screen overflow-hidden">
+                {/* Topbar */}
+                <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 relative z-0">
+                     <HeaderBackground />
+                     <div className="z-10 flex items-center gap-4">
+                         <div className="w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-lg">
+                             {currentUser.name.charAt(0).toUpperCase()}
                          </div>
-                         <div className="bg-gray-50 p-2 rounded mb-4 font-mono text-center text-lg tracking-widest border border-dashed border-gray-300 select-all">
-                             {s.accessKey}
-                         </div>
-                         <div className="flex gap-2">
-                             <button onClick={() => setActiveSession(s.id)} className="flex-1 bg-blue-50 text-blue-600 py-2 rounded hover:bg-blue-100 font-medium">{t('enter')}</button>
-                             <button onClick={() => { StorageService.saveWhiteboard({...s, isActive: !s.isActive}); setSessions(prev => prev.map(p => p.id === s.id ? {...s, isActive: !s.isActive} : p)); }} className="text-xs text-gray-500 px-2 underline">
-                                 {s.isActive ? t('close') : t('reopen')}
-                             </button>
+                         <div>
+                             <h2 className="font-bold text-gray-800">{currentUser.name}</h2>
+                             <p className="text-xs text-gray-500">{currentUser.school || 'Enseignant'}</p>
                          </div>
                      </div>
-                 ))}
-             </div>
+                </header>
+
+                <div className="flex-1 overflow-auto p-6 relative z-0">
+                    <Routes>
+                        <Route path="stats" element={<Overview user={currentUser} />} />
+                        <Route path="quizzes" element={<QuizzesView user={currentUser} />} />
+                        <Route path="lessons" element={<LessonsView user={currentUser} />} />
+                        <Route path="planning" element={<PlanningView user={currentUser} />} />
+                        <Route path="students" element={<StudentsView user={currentUser} onUpdate={setCurrentUser} />} />
+                        <Route path="results" element={<ResultsView user={currentUser} />} />
+                        <Route path="messages" element={<MessagesView user={currentUser} />} />
+                        <Route path="staff-room" element={<StaffRoomView user={currentUser} />} />
+                        <Route path="profile" element={<ProfileView user={currentUser} />} />
+                        <Route path="*" element={<Navigate to="stats" replace />} />
+                    </Routes>
+                </div>
+
+                {/* Whiteboard Configuration Modal */}
+                {showWhiteboardConfig && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                            <div className="flex justify-between items-center mb-4 border-b pb-2">
+                                <h3 className="font-bold text-lg flex items-center gap-2">
+                                    <PenTool className="w-5 h-5 text-blue-600"/> {t('createRoom')}
+                                </h3>
+                                <button onClick={() => setShowWhiteboardConfig(false)} className="text-gray-400 hover:text-gray-600">
+                                    <X className="w-5 h-5"/>
+                                </button>
+                            </div>
+                            
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('roomTitle')}</label>
+                                    <input 
+                                        className="w-full border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                                        value={wbTitle}
+                                        onChange={e => setWbTitle(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('assignedClasses')}</label>
+                                    <div className="border rounded p-2 max-h-40 overflow-y-auto grid grid-cols-2 gap-2 bg-gray-50">
+                                        {(currentUser.assignedSections || []).length > 0 ? (
+                                            currentUser.assignedSections?.map(cls => (
+                                                <label key={cls} className="flex items-center gap-2 text-sm cursor-pointer p-1 rounded hover:bg-white transition">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={wbClasses.includes(cls)}
+                                                        onChange={() => setWbClasses(prev => prev.includes(cls) ? prev.filter(c => c !== cls) : [...prev, cls])}
+                                                        className="text-blue-600 rounded"
+                                                    />
+                                                    {cls}
+                                                </label>
+                                            ))
+                                        ) : (
+                                            <p className="text-xs text-gray-400 italic col-span-2">{t('noClassesFound')}</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-2">
+                                <button onClick={() => setShowWhiteboardConfig(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">{t('cancel')}</button>
+                                <button onClick={startWhiteboardSession} className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">
+                                    {t('start')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </main>
         </div>
     );
-};
-
-// --- BUILDER WRAPPERS ---
-
-const QuizBuilderWrapper: React.FC<{ user: User }> = ({ user }) => {
-    const navigate = useNavigate();
-    const assignedClasses = user.assignedSections || [];
-    
-    return (
-        <QuizBuilder 
-            profId={user.id} 
-            onSave={(quiz) => {
-                StorageService.saveQuiz(quiz);
-                navigate('/professor/quizzes');
-            }} 
-            onCancel={() => navigate('/professor/quizzes')} 
-            availableClasses={assignedClasses} 
-        />
-    );
-};
-
-const LessonBuilderWrapper: React.FC<{ user: User }> = ({ user }) => {
-    const { t } = useLanguage();
-    const navigate = useNavigate();
-    const assignedClasses = user.assignedSections || [];
-    const [form, setForm] = useState({ title: '', desc: '', classes: [] as string[], type: LessonType.VIDEO, content: '', status: 'DRAFT' as 'DRAFT' | 'PUBLISHED' });
-    const [isUploading, setIsUploading] = useState(false);
-
-    const handleSave = () => {
-        if (!form.title || !form.content) return;
-        const newLesson: Lesson = { id: `les-${Date.now()}`, professorId: user.id, title: form.title, description: form.desc, assignedClasses: form.classes, type: form.type, contentUrl: form.content, createdAt: new Date().toISOString(), status: form.status };
-        StorageService.saveLesson(newLesson);
-        navigate('/professor/lessons');
-    };
-
-    const toggleClass = (cls: string) => {
-        setForm(prev => ({ ...prev, classes: prev.classes.includes(cls) ? prev.classes.filter(c => c !== cls) : [...prev.classes, cls] }));
-    };
-
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setIsUploading(true);
-            try {
-                const url = await ApiService.uploadFile(file);
-                setForm({ ...form, content: url });
-            } catch (err) {
-                alert("Upload failed.");
-            } finally {
-                setIsUploading(false);
-            }
-        }
-    };
-
-    return (
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-3xl mx-auto animate-fade-in">
-           <h2 className="text-2xl font-bold mb-6">{t('createLesson')}</h2>
-           <div className="space-y-4">
-               <div>
-                   <label className="block text-sm font-medium mb-1">{t('lessonTitle')}</label>
-                   <input className="w-full border rounded p-2" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
-               </div>
-               <div>
-                   <label className="block text-sm font-medium mb-1">{t('lessonDesc')}</label>
-                   <textarea className="w-full border rounded p-2" value={form.desc} onChange={e => setForm({...form, desc: e.target.value})} />
-               </div>
-               <div className="grid grid-cols-2 gap-4">
-                    <div>
-                         <label className="block text-sm font-medium mb-1">{t('lessonType')}</label>
-                         <div className="flex gap-2">
-                             <button onClick={() => setForm({...form, type: LessonType.VIDEO})} className={`flex-1 py-2 border rounded ${form.type === LessonType.VIDEO ? 'bg-red-50 border-red-500 text-red-600' : ''}`}>Vidéo</button>
-                             <button onClick={() => setForm({...form, type: LessonType.DOCUMENT})} className={`flex-1 py-2 border rounded ${form.type === LessonType.DOCUMENT ? 'bg-blue-50 border-blue-500 text-blue-600' : ''}`}>Doc</button>
-                         </div>
-                    </div>
-                    <div>
-                         <label className="block text-sm font-medium mb-1">{form.type === LessonType.VIDEO ? t('videoUrl') : t('fileUpload')}</label>
-                         {form.type === LessonType.VIDEO ? (
-                             <input className="w-full border rounded p-2" value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="https://youtube.com/..." />
-                         ) : (
-                             <div className="flex gap-2">
-                                 <input className="flex-1 border rounded p-2" value={form.content} readOnly placeholder="URL..." />
-                                 <label className="bg-gray-100 hover:bg-gray-200 border rounded px-3 flex items-center justify-center cursor-pointer">
-                                     {isUploading ? <Loader2 className="w-4 h-4 animate-spin"/> : <Upload className="w-4 h-4"/>}
-                                     <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading}/>
-                                 </label>
-                             </div>
-                         )}
-                    </div>
-               </div>
-               <div>
-                   <label className="block text-sm font-medium mb-1">{t('assignedClasses')}</label>
-                   <div className="grid grid-cols-3 gap-2 border p-3 rounded max-h-32 overflow-y-auto">
-                       {assignedClasses.map(cls => (
-                           <label key={cls} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-1 rounded">
-                               <input type="checkbox" checked={form.classes.includes(cls)} onChange={() => toggleClass(cls)} /> {cls}
-                           </label>
-                       ))}
-                       {assignedClasses.length === 0 && <span className="text-gray-400 text-xs col-span-3">{t('noClassesFound')}</span>}
-                   </div>
-               </div>
-           </div>
-           <div className="flex justify-end gap-3 mt-8 pt-4 border-t">
-               <button onClick={() => navigate('/professor/lessons')} className="px-4 py-2 text-gray-600 hover:text-gray-800">{t('cancel')}</button>
-               <button onClick={handleSave} disabled={isUploading} className="px-6 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50">
-                   <Save className="h-4 w-4 rtl:flip" /> {t('save')}
-               </button>
-           </div>
-        </div>
-    );
-};
-
-// --- MAIN COMPONENT ---
-
-const ProfessorDashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
-  const { t, dir } = useLanguage();
-  const [currentUser, setCurrentUser] = useState<User>(initialUser);
-  const location = useLocation();
-
-  // Notifications logic
-  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
-  const [unreadStaffCount, setUnreadStaffCount] = useState(0);
-  
-  const refreshNotifications = () => {
-      setUnreadMsgCount(StorageService.getUnreadCount(currentUser.id));
-      const staffChatId = `chat_${currentUser.school}_${currentUser.city}`;
-      const lastStaffRead = localStorage.getItem(`lastStaffRead_${currentUser.id}`) || '0';
-      setUnreadStaffCount(StorageService.getNewStaffMessagesCount(staffChatId, new Date(parseInt(lastStaffRead)).toISOString(), currentUser.id));
-  };
-
-  useEffect(() => {
-      refreshNotifications();
-      const interval = setInterval(refreshNotifications, 15000);
-      return () => clearInterval(interval);
-  }, [currentUser]);
-
-  // Check active route for styling - Updated to check /professor/ path
-  const isActive = (path: string) => location.pathname.includes(`/professor/${path}`);
-
-  return (
-    <div className="min-h-screen bg-gray-100 flex flex-col" dir={dir}>
-       <header className="bg-white shadow px-8 py-4 flex justify-between items-center sticky top-0 z-20">
-           <div className="flex items-center gap-4">
-               <span className="text-3xl font-black text-blue-700 font-logo tracking-tight">{t('appName')}</span>
-               <div className="h-6 w-px bg-gray-300"></div>
-               <div>
-                   <h1 className="text-sm font-bold text-gray-700 uppercase tracking-wide">{t('staffSpace')}</h1>
-                   <p className="text-gray-500 text-xs">{currentUser.name}</p>
-                   {currentUser.school && <p className="text-blue-600 text-[10px] font-bold">{currentUser.school} ({currentUser.city})</p>}
-               </div>
-           </div>
-           <button onClick={onLogout} className="text-red-600 hover:text-red-800 flex items-center gap-2 text-sm font-medium">
-               <LogOut className="w-4 h-4 rtl:flip"/> {t('logout')}
-           </button>
-       </header>
-
-       <main className="flex-1 p-8 max-w-6xl mx-auto w-full">
-           <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-300">
-               {[
-                   { id: 'quizzes', icon: FileText, label: t('myQuizzes') },
-                   { id: 'lessons', icon: BookOpen, label: t('myCourses') },
-                   { id: 'students', icon: Users, label: t('myStudents') },
-                   { id: 'results', icon: BarChart, label: t('results') },
-                   { id: 'messages', icon: MessageCircle, label: t('messages'), badge: unreadMsgCount },
-                   { id: 'whiteboard', icon: PenTool, label: t('whiteboard') },
-                   { id: 'staff-room', icon: Coffee, label: t('staffRoom'), badge: unreadStaffCount },
-                   { id: 'profile', icon: UserCircle, label: t('profile') }
-               ].map(tab => (
-                   <Link 
-                       key={tab.id} 
-                       to={`/professor/${tab.id}`} 
-                       className={`pb-2 px-4 flex items-center gap-2 border-b-2 transition-colors relative ${isActive(tab.id) ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                   >
-                       <tab.icon className="w-4 h-4"/> {tab.label}
-                       {tab.badge ? <span className="absolute top-0 right-1 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse ring-2 ring-white"></span> : null}
-                   </Link>
-               ))}
-           </div>
-
-           <Routes>
-               <Route path="quizzes" element={<QuizzesView user={currentUser} />} />
-               <Route path="quizzes/new" element={<QuizBuilderWrapper user={currentUser} />} />
-               
-               <Route path="lessons" element={<LessonsView user={currentUser} />} />
-               <Route path="lessons/new" element={<LessonBuilderWrapper user={currentUser} />} />
-               
-               <Route path="students" element={<StudentsView user={currentUser} />} />
-               <Route path="results" element={<ResultsView user={currentUser} />} />
-               
-               <Route path="messages" element={<MessagesView user={currentUser} />} />
-               <Route path="whiteboard" element={<WhiteboardView user={currentUser} />} />
-               <Route path="staff-room" element={<StaffRoomView user={currentUser} />} />
-               
-               <Route path="profile" element={<ProfileView user={currentUser} onUpdate={setCurrentUser} />} />
-               
-               <Route path="*" element={<Navigate to="quizzes" replace />} />
-           </Routes>
-       </main>
-    </div>
-  );
 };
 
 export default ProfessorDashboard;

@@ -159,6 +159,36 @@ export const ApiService = {
         }
     },
 
+    updateUser: async (id: string, updates: Partial<User>): Promise<boolean> => {
+        try {
+            await fetch(`/api/users/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates)
+            });
+            return true;
+        } catch (e) {
+            // Local fallback
+            const users = StorageService.getUsers();
+            const idx = users.findIndex(u => u.id === id);
+            if (idx >= 0) {
+                users[idx] = { ...users[idx], ...updates };
+                localStorage.setItem('quizmaster_users', JSON.stringify(users));
+            }
+            return true;
+        }
+    },
+
+    deleteUser: async (id: string): Promise<boolean> => {
+        try {
+            await fetch(`/api/users/${id}`, { method: 'DELETE' });
+            return true;
+        } catch (e) {
+            StorageService.deleteUser(id);
+            return true;
+        }
+    },
+
     submitQuiz: async (payload: { quizId: string, studentId: string, studentName: string, answers: any, timeSpent: number, essayScores: any }): Promise<QuizResult | null> => {
         try {
             const res = await fetch('/api/quiz/submit', {

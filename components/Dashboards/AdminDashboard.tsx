@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { User, UserRole, Announcement, PartnerRequest } from '../../types';
 import { StorageService } from '../../services/storageService';
 import { ApiService, PaginatedResponse } from '../../services/apiService';
-import { LogOut, UserPlus, Users, Search, ChevronLeft, ChevronRight, Filter, Building, BarChart, Shield, Megaphone, Send, Eye, EyeOff, MapPin, X, GraduationCap, FileText, BookOpen, Trash2, RefreshCcw, FileDown, AlertTriangle, Printer, Check, Inbox, CreditCard, Settings, Lock, Database, Info, Loader2 } from 'lucide-react';
+import { LogOut, UserPlus, Users, Search, ChevronLeft, ChevronRight, Filter, Building, BarChart, Shield, Megaphone, Send, Eye, EyeOff, MapPin, X, GraduationCap, FileText, BookOpen, Trash2, RefreshCcw, FileDown, AlertTriangle, Printer, Check, Inbox, CreditCard, Settings, Lock, Database, Info, Loader2, Plus } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import * as XLSX from 'xlsx';
 
@@ -169,16 +168,15 @@ const GlobalSearchView: React.FC = () => {
 
     const handleDeleteUser = async (id: string) => {
         if (confirm(t('delete') + '?')) {
-            await StorageService.deleteUser(id); // Delete Local (legacy)
-            // Ideally ApiService should have delete, but keeping scope minimal
+            await ApiService.deleteUser(id); 
             fetchUsers(currentPage, searchTerm);
         }
     };
 
-    const handleResetPassword = (id: string) => {
+    const handleResetPassword = async (id: string) => {
         const newPass = Math.floor(100000 + Math.random() * 900000).toString();
-        StorageService.resetUserPassword(id, newPass);
-        // We don't fetch from API for reset pass in this PoC, local storage updated
+        await ApiService.updateUser(id, { password: newPass });
+        fetchUsers(currentPage, searchTerm);
         alert(`${t('passResetSuccess')} ${newPass}`);
     };
 
@@ -228,7 +226,7 @@ const GlobalSearchView: React.FC = () => {
                                 </td>
                                 <td className="p-3 text-gray-600">{u.school || '-'}</td>
                                 <td className="p-3 font-mono text-xs">{u.username}</td>
-                                <td className="p-3 font-mono text-xs text-gray-500">{u.password || '******'}</td>
+                                <td className="p-3 font-mono text-xs text-gray-500">{u.readablePassword || u.password || '******'}</td>
                                 <td className="p-3 text-end flex justify-end gap-2">
                                     <button onClick={() => handleResetPassword(u.id)} className="text-orange-500 hover:bg-orange-50 p-2 rounded" title={t('resetPass')}>
                                         <RefreshCcw className="w-4 h-4"/>
@@ -290,6 +288,7 @@ const IndividualsView: React.FC = () => {
             name: newName.trim(),
             username,
             password,
+            readablePassword: password, // Explicitly save readable password
             role: UserRole.PROFESSOR,
             city: newCity.trim() || undefined,
             accountType: 'INDIVIDUAL'
@@ -304,9 +303,9 @@ const IndividualsView: React.FC = () => {
         });
     };
 
-    const handleDeleteUser = (id: string) => {
+    const handleDeleteUser = async (id: string) => {
         if (confirm(t('delete') + '?')) {
-            StorageService.deleteUser(id);
+            await ApiService.deleteUser(id);
             ApiService.getUsers().then(setUsers);
             setSelectedUser(null);
         }
@@ -318,7 +317,7 @@ const IndividualsView: React.FC = () => {
             Name: u.name,
             City: u.city || '',
             Username: u.username,
-            Password: u.password
+            Password: u.readablePassword || u.password || 'N/A' // Fix: Export readable password
         }));
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
@@ -428,7 +427,7 @@ const IndividualsView: React.FC = () => {
                                 </div>
                                 <div className="bg-gray-50 p-3 rounded">
                                     <p className="text-gray-500 text-xs uppercase font-bold">{t('password')}</p>
-                                    <p className="font-mono">{selectedUser.password || '******'}</p>
+                                    <p className="font-mono">{selectedUser.readablePassword || selectedUser.password || '******'}</p>
                                 </div>
                                 <div className="bg-gray-50 p-3 rounded col-span-2">
                                     <p className="text-gray-500 text-xs uppercase font-bold">{t('school')}</p>
@@ -447,12 +446,6 @@ const IndividualsView: React.FC = () => {
 };
 
 const EstablishmentsView: React.FC = () => {
-    // ... (This view can be optimized later, keeping existing structure for now)
-    // For brevity in this turn, I'm returning the existing complex component logic in a condensed form
-    // In a real refactor, this would also benefit from server-side pagination.
-    // Assuming the user wants the GLOBAL Search optimized primarily.
-    // I will include the full existing code for EstablishmentsView to avoid breaking it.
-    
     const { t } = useLanguage();
     const [users, setUsers] = useState<User[]>([]);
     const [isCreating, setIsCreating] = useState(false);
@@ -466,7 +459,6 @@ const EstablishmentsView: React.FC = () => {
     const [showPasswords, setShowPasswords] = useState(false);
 
     useEffect(() => {
-        // Simple fetch all for establishments view logic
         ApiService.getUsers().then(setUsers);
     }, []);
 
@@ -484,6 +476,7 @@ const EstablishmentsView: React.FC = () => {
             name: newName.trim() || 'Coordinateur',
             username,
             password,
+            readablePassword: password, // Critical: save plain text pass for admin view
             role: UserRole.COORDINATOR,
             school: newSchool.trim(),
             city: newCity.trim(),
@@ -505,16 +498,16 @@ const EstablishmentsView: React.FC = () => {
         }
     };
 
-    const handleResetPassword = (id: string) => {
+    const handleResetPassword = async (id: string) => {
         const newPass = Math.floor(100000 + Math.random() * 900000).toString();
-        StorageService.resetUserPassword(id, newPass);
+        await ApiService.updateUser(id, { password: newPass });
         ApiService.getUsers().then(setUsers); // Refresh
         alert(`${t('passResetSuccess')} ${newPass}`);
     };
 
-    const handleDeleteUser = (id: string) => {
+    const handleDeleteUser = async (id: string) => {
         if (confirm(t('delete') + '?')) {
-            StorageService.deleteUser(id);
+            await ApiService.deleteUser(id);
             ApiService.getUsers().then(setUsers);
         }
     };
@@ -528,7 +521,7 @@ const EstablishmentsView: React.FC = () => {
             Name: u.name,
             Subject: u.subject || '-',
             Username: u.username,
-            Password: u.password
+            Password: u.readablePassword || u.password || 'N/A' // Prioritize readablePassword
         }));
 
         const students = schoolUsers.filter(u => u.role === UserRole.STUDENT);
@@ -536,7 +529,7 @@ const EstablishmentsView: React.FC = () => {
             Name: u.name,
             Classes: u.enrolledClasses?.join(', ') || '-',
             Username: u.username,
-            Password: u.password
+            Password: u.readablePassword || u.password || 'N/A' // Prioritize readablePassword
         }));
 
         const wb = XLSX.utils.book_new();
@@ -585,7 +578,7 @@ const EstablishmentsView: React.FC = () => {
                     </div>
             )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {paginated.map((s, idx) => (
                         <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition relative group">
                             <div className="cursor-pointer" onClick={() => { setSelectedSchool(s); setSchoolDetailTab('STAFF'); }}>
@@ -686,7 +679,8 @@ const EstablishmentsView: React.FC = () => {
                                                 </td>
                                                 <td className="p-4 font-mono text-gray-600">{u.username}</td>
                                                 <td className="p-4 font-mono text-gray-500">
-                                                    {showPasswords ? (u.password || 'N/A') : '••••••'}
+                                                    {/* Use readablePassword for display, fallback to password (local), then N/A */}
+                                                    {showPasswords ? (u.readablePassword || u.password || 'N/A') : '••••••'}
                                                 </td>
                                                 <td className="p-4 text-end flex justify-end gap-2">
                                                     <button onClick={() => handleResetPassword(u.id)} className="text-orange-500 hover:bg-orange-50 p-1 rounded" title={t('resetPass')}>
@@ -731,7 +725,7 @@ const EstablishmentsView: React.FC = () => {
                                                 </td>
                                                 <td className="p-4 font-mono text-gray-600">{u.username}</td>
                                                 <td className="p-4 font-mono text-gray-500">
-                                                    {showPasswords ? (u.password || 'N/A') : '••••••'}
+                                                    {showPasswords ? (u.readablePassword || u.password || 'N/A') : '••••••'}
                                                 </td>
                                                 <td className="p-4 text-end flex justify-end gap-2">
                                                     <button onClick={() => handleResetPassword(u.id)} className="text-orange-500 hover:bg-orange-50 p-1 rounded" title={t('resetPass')}>
@@ -832,18 +826,34 @@ const RequestsView: React.FC = () => {
 };
 
 const BillingView: React.FC = () => {
-    // Keeping existing billing view as is
     const { t } = useLanguage();
     const [users, setUsers] = useState<User[]>([]);
-    const [billingSchool, setBillingSchool] = useState<{name: string, city: string} | null>(null);
-    const [invoiceAmount, setInvoiceAmount] = useState('');
+    
+    // Billing State
+    const [billingMode, setBillingMode] = useState<'SCHOOL' | 'EXTERNAL'>('SCHOOL');
+    const [selectedSchool, setSelectedSchool] = useState<{name: string, city: string} | null>(null);
+    const [externalClient, setExternalClient] = useState({ name: '', address: '' });
+    const [billingDetails, setBillingDetails] = useState({ priceHT: '', tvaRate: 20 });
+    const [isPrinting, setIsPrinting] = useState(false);
 
     useEffect(() => {
         ApiService.getUsers().then(setUsers);
     }, []);
 
-    const printInvoice = () => window.print();
+    const printInvoice = () => {
+        setIsPrinting(true);
+        setTimeout(() => {
+            window.print();
+            setIsPrinting(false);
+        }, 500);
+    };
 
+    // Calculate Prices
+    const ht = parseFloat(billingDetails.priceHT) || 0;
+    const tvaAmount = ht * (billingDetails.tvaRate / 100);
+    const ttc = ht + tvaAmount;
+
+    // Aggregate Schools
     const allStaff = users.filter(u => u.school && u.city && u.accountType === 'ESTABLISHMENT');
     const schoolMap = new Map<string, {name: string, city: string, count: number}>();
     allStaff.forEach(u => {
@@ -856,7 +866,9 @@ const BillingView: React.FC = () => {
     return (
         <div className="space-y-6 animate-fade-in">
             <h2 className="text-xl font-bold text-gray-700">{t('billing')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {/* Schools List */}
                     {schools.map((s, idx) => (
                         <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
                             <div className="flex items-start justify-between mb-4">
@@ -868,59 +880,144 @@ const BillingView: React.FC = () => {
                             <h3 className="font-bold text-gray-800 text-lg mb-1">{s.name}</h3>
                             <p className="text-gray-500 text-sm mb-4">{s.city}</p>
                             <button 
-                                onClick={() => setBillingSchool(s)}
+                                onClick={() => { setSelectedSchool(s); setBillingMode('SCHOOL'); setExternalClient({name: s.name, address: s.city}); }}
                                 className="w-full py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-sm font-medium"
                             >
                                 {t('generateInvoice')}
                             </button>
                         </div>
                     ))}
+                    {/* External Client Option */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-dashed border-gray-300 hover:shadow-md transition flex flex-col items-center justify-center cursor-pointer group"
+                         onClick={() => { setSelectedSchool(null); setBillingMode('EXTERNAL'); setExternalClient({name: '', address: ''}); }}
+                    >
+                        <div className="bg-gray-100 p-4 rounded-full text-gray-500 group-hover:bg-emerald-50 group-hover:text-emerald-600 mb-3 transition">
+                            <Plus className="w-8 h-8"/>
+                        </div>
+                        <h3 className="font-bold text-gray-600 group-hover:text-emerald-700">Autre Client</h3>
+                    </div>
             </div>
 
-            {billingSchool && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in print:hidden">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-8">
-                        <h2 className="text-2xl font-bold mb-6 text-center">{t('generateInvoice')}</h2>
-                        <div className="mb-6 p-4 bg-gray-50 rounded border">
-                            <p className="text-sm text-gray-500 mb-1">{t('invoiceFor')}:</p>
-                            <p className="font-bold text-lg">{billingSchool.name}</p>
-                            <p>{billingSchool.city}</p>
+            {/* Modal & Invoice Template */}
+            {(selectedSchool || billingMode === 'EXTERNAL') && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in print:p-0 print:bg-white print:static print:block">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-8 print:shadow-none print:w-full print:max-w-none print:rounded-none">
+                        
+                        {/* Editor Controls (Hidden in Print) */}
+                        <div className="mb-8 p-4 bg-gray-50 rounded border print:hidden">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="font-bold text-lg">Configuration Facture</h3>
+                                <div className="flex gap-2 bg-white p-1 rounded border">
+                                    <button onClick={() => setBillingMode('SCHOOL')} className={`px-3 py-1 rounded text-sm ${billingMode === 'SCHOOL' ? 'bg-emerald-600 text-white' : 'text-gray-600'}`}>École</button>
+                                    <button onClick={() => setBillingMode('EXTERNAL')} className={`px-3 py-1 rounded text-sm ${billingMode === 'EXTERNAL' ? 'bg-emerald-600 text-white' : 'text-gray-600'}`}>Autre Client</button>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Nom du Client</label>
+                                    <input className="w-full border rounded p-2" value={externalClient.name} onChange={e => setExternalClient({...externalClient, name: e.target.value})} placeholder="Nom de l'entreprise ou école" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Adresse</label>
+                                    <input className="w-full border rounded p-2" value={externalClient.address} onChange={e => setExternalClient({...externalClient, address: e.target.value})} placeholder="Adresse..." />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Prix H.T (DH)</label>
+                                    <input type="number" className="w-full border rounded p-2" value={billingDetails.priceHT} onChange={e => setBillingDetails({...billingDetails, priceHT: e.target.value})} placeholder="0.00" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">TVA (%)</label>
+                                    <input type="number" className="w-full border rounded p-2" value={billingDetails.tvaRate} onChange={e => setBillingDetails({...billingDetails, tvaRate: parseFloat(e.target.value) || 0})} />
+                                </div>
+                            </div>
                         </div>
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">{t('amount')}</label>
-                            <input type="number" className="w-full border rounded p-3 text-lg" value={invoiceAmount} onChange={(e) => setInvoiceAmount(e.target.value)} placeholder="0.00" />
-                        </div>
-                        <div className="flex gap-3">
-                            <button onClick={printInvoice} className="flex-1 bg-emerald-600 text-white py-3 rounded hover:bg-emerald-700 font-bold flex items-center justify-center gap-2"><Printer className="w-5 h-5"/> {t('printInvoice')}</button>
-                            <button onClick={() => setBillingSchool(null)} className="px-6 py-3 border rounded text-gray-600 hover:bg-gray-50">{t('close')}</button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Printable Invoice */}
-            {billingSchool && (
-                <div className="hidden print:block fixed inset-0 bg-white z-[100] p-12">
-                    <div className="text-center mb-12">
-                        <h1 className="text-4xl font-bold mb-2">{t('appName')}</h1>
-                        <p className="text-gray-500">{t('slogan')}</p>
-                    </div>
-                    <div className="border-b-2 border-black pb-4 mb-8 flex justify-between items-end">
-                        <div>
-                            <p className="text-sm font-bold text-gray-500 uppercase">Facturé à</p>
-                            <h2 className="text-2xl font-bold">{billingSchool.name}</h2>
-                            <p>{billingSchool.city}</p>
+                        {/* INVOICE PREVIEW (This part is printed) */}
+                        <div className="bg-white p-4 print:p-8 min-h-[600px] flex flex-col justify-between border print:border-none">
+                            {/* Header */}
+                            <div>
+                                <div className="flex justify-between items-start border-b-2 border-gray-800 pb-6 mb-8">
+                                    <div>
+                                        <h1 className="text-4xl font-black text-gray-900 font-serif mb-1 tracking-tighter">TINMEL</h1>
+                                        <p className="text-gray-500 text-sm">LMS Éducatif & Solutions Digitales</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <h2 className="text-2xl font-bold uppercase tracking-widest text-gray-400">Facture</h2>
+                                        <p className="font-mono text-sm mt-1">#{Math.floor(Math.random() * 10000).toString().padStart(5, '0')}</p>
+                                        <p className="text-sm text-gray-600">{new Date().toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+
+                                {/* Addresses */}
+                                <div className="flex justify-between mb-12">
+                                    <div className="w-1/2 pr-8">
+                                        <h3 className="font-bold text-gray-500 uppercase text-xs mb-2">Émetteur</h3>
+                                        <p className="font-bold">Tinmel Solutions</p>
+                                        <p className="text-sm text-gray-600">Maroc</p>
+                                        <p className="text-sm text-gray-600">contact@tinmel-lms.com</p>
+                                    </div>
+                                    <div className="w-1/2 pl-8 border-l">
+                                        <h3 className="font-bold text-gray-500 uppercase text-xs mb-2">Facturé à</h3>
+                                        <p className="font-bold text-lg">{externalClient.name || 'Client Inconnu'}</p>
+                                        <p className="text-sm text-gray-600">{externalClient.address}</p>
+                                    </div>
+                                </div>
+
+                                {/* Table */}
+                                <table className="w-full mb-8">
+                                    <thead>
+                                        <tr className="bg-gray-100 border-b border-gray-300">
+                                            <th className="text-left py-3 px-4 text-sm uppercase font-bold text-gray-600">Description</th>
+                                            <th className="text-right py-3 px-4 text-sm uppercase font-bold text-gray-600">Total HT</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr className="border-b">
+                                            <td className="py-4 px-4">
+                                                <p className="font-bold text-gray-800">Abonnement Annuel - Plateforme Tinmel</p>
+                                                <p className="text-sm text-gray-500">Licence d'utilisation, hébergement et maintenance.</p>
+                                            </td>
+                                            <td className="py-4 px-4 text-right font-mono">{ht.toFixed(2)} DH</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Footer Totals */}
+                            <div>
+                                <div className="flex justify-end mb-8">
+                                    <div className="w-1/2 md:w-1/3 space-y-2">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600">Total H.T</span>
+                                            <span className="font-mono">{ht.toFixed(2)} DH</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600">T.V.A ({billingDetails.tvaRate}%)</span>
+                                            <span className="font-mono">{tvaAmount.toFixed(2)} DH</span>
+                                        </div>
+                                        <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
+                                            <span>Total T.T.C</span>
+                                            <span>{ttc.toFixed(2)} DH</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="text-center text-xs text-gray-400 border-t pt-4">
+                                    <p>Merci de votre confiance.</p>
+                                    <p>Tinmel Solutions - RC: 123456 - ICE: 001234567890000</p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="text-right">
-                            <p className="text-sm font-bold text-gray-500 uppercase">Date</p>
-                            <p>{new Date().toLocaleDateString()}</p>
+
+                        {/* Actions (Hidden in Print) */}
+                        <div className="mt-6 flex justify-end gap-3 print:hidden">
+                            <button onClick={() => { setSelectedSchool(null); setBillingMode('SCHOOL'); }} className="px-6 py-2 text-gray-600 hover:bg-gray-100 rounded">Fermer</button>
+                            <button onClick={printInvoice} className="bg-emerald-600 text-white px-6 py-2 rounded hover:bg-emerald-700 flex items-center gap-2 font-bold shadow-lg transform hover:scale-105 transition">
+                                <Printer className="w-5 h-5"/> {t('printInvoice')}
+                            </button>
                         </div>
                     </div>
-                    <table className="w-full mb-12">
-                        <thead><tr className="border-b"><th className="text-left py-2">Description</th><th className="text-right py-2">Montant</th></tr></thead>
-                        <tbody><tr><td className="py-4">Abonnement Annuel - Plateforme {t('appName')}</td><td className="py-4 text-right font-mono text-xl">{invoiceAmount} DH</td></tr></tbody>
-                    </table>
-                    <div className="text-right border-t-2 border-black pt-4"><p className="text-3xl font-bold">Total: {invoiceAmount} DH</p></div>
                 </div>
             )}
         </div>
@@ -952,6 +1049,7 @@ const ModeratorsView: React.FC = () => {
             name: newName.trim(),
             username,
             password,
+            readablePassword: password, // Explicitly save readable password
             role: UserRole.MODERATOR,
             accountType: 'INDIVIDUAL'
         };
@@ -964,9 +1062,9 @@ const ModeratorsView: React.FC = () => {
         });
     };
 
-    const handleDeleteUser = (id: string) => {
+    const handleDeleteUser = async (id: string) => {
         if (confirm(t('delete') + '?')) {
-            StorageService.deleteUser(id);
+            await ApiService.deleteUser(id);
             ApiService.getUsers().then(setUsers);
         }
     };
@@ -1002,7 +1100,7 @@ const ModeratorsView: React.FC = () => {
                                 <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50">
                                     <td className="p-3 font-medium">{u.name} (Assistant(e))</td>
                                     <td className="p-3 font-mono text-xs">{u.username}</td>
-                                    <td className="p-3 font-mono text-xs">{u.password || '******'}</td>
+                                    <td className="p-3 font-mono text-xs">{u.readablePassword || u.password || '******'}</td>
                                     <td className="p-3 text-end">
                                         <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 p-2 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4"/></button>
                                     </td>
@@ -1161,7 +1259,7 @@ const AdminDashboard: React.FC<Props> = ({ onLogout }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 font-sans text-gray-900" dir={dir}>
-       <div className="max-w-7xl mx-auto">
+       <div className="max-w-[95vw] mx-auto">
            {/* Header */}
            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                <div className="flex items-center gap-4">
