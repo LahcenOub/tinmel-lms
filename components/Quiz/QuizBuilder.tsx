@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Quiz, Question, QuestionType, MatchingPair } from '../../types';
-import { Plus, Trash2, Save, Wand2, RefreshCcw, Lock, Clock, Calendar, Image as ImageIcon, CheckSquare, Type, Split, AlignLeft, List, MousePointerClick, MessageSquare, PenTool, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Save, Wand2, RefreshCcw, Lock, Clock, Calendar, Image as ImageIcon, CheckSquare, Type, Split, AlignLeft, List, MousePointerClick, MessageSquare, PenTool, Loader2, Mic, MonitorPlay, Link as LinkIcon } from 'lucide-react';
 import { GeminiService } from '../../services/geminiService';
 import { ApiService } from '../../services/apiService';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -34,7 +34,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
       type,
       text: '',
       points: 1,
-      options: (type === QuestionType.MCQ || type === QuestionType.IMAGE_MCQ) ? ['', ''] : undefined,
+      options: (type === QuestionType.MCQ || type === QuestionType.IMAGE_MCQ || type === QuestionType.AUDIO || type === QuestionType.VIDEO) ? ['', ''] : undefined,
       correctAnswer: type === QuestionType.BOOLEAN ? true : '',
       matchingPairs: type === QuestionType.MATCHING ? [{ left: '', right: '' }, { left: '', right: '' }] : undefined
     };
@@ -53,19 +53,25 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
     setQuestions(questions.filter(q => q.id !== id));
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, qId: string) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, qId: string, field: 'imageUrl' | 'audioUrl' | 'videoUrl') => {
     const file = e.target.files?.[0];
     if (file) {
         setUploadingState(prev => ({ ...prev, [qId]: true }));
         try {
             const url = await ApiService.uploadFile(file);
-            updateQuestion(qId, { imageUrl: url });
+            updateQuestion(qId, { [field]: url });
         } catch (error) {
             alert("Erreur lors de l'upload.");
         } finally {
             setUploadingState(prev => ({ ...prev, [qId]: false }));
         }
     }
+  };
+
+  const getYoutubeEmbed = (url: string) => {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
   };
 
   const handleGenerateAI = async () => {
@@ -112,6 +118,8 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
       switch(type) {
           case QuestionType.MCQ: return <List className="w-5 h-5"/>;
           case QuestionType.IMAGE_MCQ: return <ImageIcon className="w-5 h-5"/>;
+          case QuestionType.AUDIO: return <Mic className="w-5 h-5"/>;
+          case QuestionType.VIDEO: return <MonitorPlay className="w-5 h-5"/>;
           case QuestionType.BOOLEAN: return <CheckSquare className="w-5 h-5"/>;
           case QuestionType.SHORT_ANSWER: return <Type className="w-5 h-5"/>;
           case QuestionType.ESSAY: return <AlignLeft className="w-5 h-5"/>;
@@ -124,6 +132,8 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
   const questionTypes = [
     { type: QuestionType.MCQ, label: "QCM Texte", desc: "Questions à choix multiples classiques", icon: List, color: "bg-blue-50 text-blue-600 border-blue-200" },
     { type: QuestionType.IMAGE_MCQ, label: "QCM Image", desc: "Questions basées sur un visuel", icon: ImageIcon, color: "bg-purple-50 text-purple-600 border-purple-200" },
+    { type: QuestionType.AUDIO, label: "Compr. Orale", desc: "Question avec fichier audio", icon: Mic, color: "bg-red-50 text-red-600 border-red-200" },
+    { type: QuestionType.VIDEO, label: "Analyse Vidéo", desc: "Question avec fichier vidéo ou YouTube", icon: MonitorPlay, color: "bg-rose-50 text-rose-600 border-rose-200" },
     { type: QuestionType.BOOLEAN, label: "Vrai / Faux", desc: "Réponse binaire simple", icon: CheckSquare, color: "bg-green-50 text-green-600 border-green-200" },
     { type: QuestionType.SHORT_ANSWER, label: "Réponse Courte", desc: "Un mot ou une phrase exacte", icon: Type, color: "bg-orange-50 text-orange-600 border-orange-200" },
     { type: QuestionType.MATCHING, label: "Appariement", desc: "Relier des éléments entre eux", icon: Split, color: "bg-pink-50 text-pink-600 border-pink-200" },
@@ -303,48 +313,78 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
                 </div>
             </div>
 
-             {/* Image Upload for Image MCQ */}
-             {q.type === QuestionType.IMAGE_MCQ && (
+             {/* Upload for Image or Audio or Video */}
+             {(q.type === QuestionType.IMAGE_MCQ || q.type === QuestionType.AUDIO || q.type === QuestionType.VIDEO) && (
               <div className="mb-4 ms-11">
-                <div className="flex items-center gap-4">
-                  {q.imageUrl ? (
-                    <div className="relative group/image">
-                      <img src={q.imageUrl} alt="Question" className="h-40 w-auto object-cover rounded-lg border shadow-sm" />
+                <div className="flex items-center gap-4 flex-wrap">
+                  {(q.type === QuestionType.IMAGE_MCQ ? q.imageUrl : (q.type === QuestionType.AUDIO ? q.audioUrl : q.videoUrl)) ? (
+                    <div className="relative group/media w-full">
+                      {q.type === QuestionType.IMAGE_MCQ ? (
+                          <img src={q.imageUrl} alt="Question" className="h-40 w-auto object-cover rounded-lg border shadow-sm" />
+                      ) : q.type === QuestionType.AUDIO ? (
+                          <audio controls src={q.audioUrl} className="w-full max-w-md"/>
+                      ) : (
+                          <div className="w-full max-w-md aspect-video bg-black rounded overflow-hidden">
+                              {getYoutubeEmbed(q.videoUrl || '') ? (
+                                  <iframe className="w-full h-full" src={`https://www.youtube.com/embed/${getYoutubeEmbed(q.videoUrl || '')}`} frameBorder="0" allowFullScreen></iframe>
+                              ) : (
+                                  <video controls src={q.videoUrl} className="w-full h-full"/>
+                              )}
+                          </div>
+                      )}
                       <button 
                         type="button"
-                        onClick={() => updateQuestion(q.id, { imageUrl: undefined })}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-md hover:bg-red-600 transition-transform hover:scale-110"
+                        onClick={() => updateQuestion(q.id, q.type === QuestionType.IMAGE_MCQ ? { imageUrl: undefined } : q.type === QuestionType.AUDIO ? { audioUrl: undefined } : { videoUrl: undefined })}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-md hover:bg-red-600 transition-transform hover:scale-110 z-10"
                         title={t('delete')}
                       >
                         <Trash2 className="w-3 h-3"/>
                       </button>
                     </div>
                   ) : (
-                    <label className="flex flex-col items-center justify-center w-full max-w-sm h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors relative">
-                        {uploadingState[q.id] ? (
-                            <Loader2 className="animate-spin text-blue-500 w-8 h-8"/>
-                        ) : (
-                            <>
-                                <ImageIcon className="text-gray-400 w-8 h-8 mb-2"/>
-                                <span className="text-sm text-gray-500 font-medium">{t('upload')}</span>
-                            </>
+                    <div className="w-full flex flex-col gap-2">
+                        {q.type === QuestionType.VIDEO && (
+                            <div className="flex gap-2 items-center mb-2 w-full max-w-lg">
+                                <div className="relative flex-1">
+                                    <LinkIcon className="absolute left-2 top-2.5 w-4 h-4 text-gray-400"/>
+                                    <input 
+                                        className="w-full pl-8 p-2 border rounded text-sm"
+                                        placeholder="Collez un lien YouTube ou MP4 ici..."
+                                        value={q.videoUrl || ''}
+                                        onChange={(e) => updateQuestion(q.id, { videoUrl: e.target.value })}
+                                    />
+                                </div>
+                                <span className="text-xs text-gray-500 font-bold uppercase">OU</span>
+                            </div>
                         )}
-                        <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            onChange={(e) => handleImageUpload(e, q.id)} 
-                            disabled={uploadingState[q.id]}
-                            onClick={(e) => (e.currentTarget.value = '')} // Allow re-uploading same file
-                        />
-                    </label>
+                        <label className="flex flex-col items-center justify-center w-full max-w-sm h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors relative bg-gray-50/50">
+                            {uploadingState[q.id] ? (
+                                <Loader2 className="animate-spin text-blue-500 w-8 h-8"/>
+                            ) : (
+                                <>
+                                    {q.type === QuestionType.IMAGE_MCQ ? <ImageIcon className="text-gray-400 w-8 h-8 mb-2"/> : q.type === QuestionType.AUDIO ? <Mic className="text-gray-400 w-8 h-8 mb-2"/> : <MonitorPlay className="text-gray-400 w-8 h-8 mb-2"/>}
+                                    <span className="text-sm text-gray-500 font-medium">
+                                        {t('upload')} {q.type === QuestionType.AUDIO ? 'Audio' : q.type === QuestionType.VIDEO ? 'Vidéo' : 'Image'}
+                                    </span>
+                                </>
+                            )}
+                            <input 
+                                type="file" 
+                                accept={q.type === QuestionType.IMAGE_MCQ ? "image/*" : q.type === QuestionType.AUDIO ? "audio/*" : "video/*"} 
+                                className="hidden" 
+                                onChange={(e) => handleFileUpload(e, q.id, q.type === QuestionType.IMAGE_MCQ ? 'imageUrl' : q.type === QuestionType.AUDIO ? 'audioUrl' : 'videoUrl')} 
+                                disabled={uploadingState[q.id]}
+                                onClick={(e) => (e.currentTarget.value = '')} 
+                            />
+                        </label>
+                    </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* MCQ & Image MCQ Options */}
-            {(q.type === QuestionType.MCQ || q.type === QuestionType.IMAGE_MCQ) && (
+            {/* MCQ & Image MCQ & Audio MCQ & Video MCQ Options */}
+            {(q.type === QuestionType.MCQ || q.type === QuestionType.IMAGE_MCQ || q.type === QuestionType.AUDIO || q.type === QuestionType.VIDEO) && (
                 <div className="space-y-2 ms-11">
                     {q.options?.map((opt, oIdx) => (
                         <div key={oIdx} className="flex items-center gap-3 group/option">

@@ -18,6 +18,8 @@ const getEnv = (key: string, fallback: string) => {
 export const QUESTION_TYPE_LABELS: Record<string, string> = {
   MCQ: 'Choix Multiples (Texte)',
   IMAGE_MCQ: 'Choix Multiples (Image)',
+  AUDIO: 'Compréhension Orale (Audio)',
+  VIDEO: 'Analyse Vidéo',
   BOOLEAN: 'Vrai ou Faux',
   ESSAY: 'Question Ouverte / Essai',
   MATCHING: 'Appariement',

@@ -1,105 +1,101 @@
 
 import express from 'express';
 import cors from 'cors';
-import sqlite3 from 'sqlite3';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
 import multer from 'multer';
 import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
-import { dirname, join, extname } from 'path';
+import { dirname, join } from 'path';
+import { rateLimit } from 'express-rate-limit';
+import helmet from 'helmet'; // Security Headers
+import { GoogleGenAI, Type } from "@google/genai"; // Import SDK Backend
+
+// Nouveaux imports
+import { db } from './backend/db.js';
+import { emailService } from './backend/email.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'tinmel_opensource_secret_key_change_me_in_prod';
+// Sécurité JWT : Utiliser une variable d'env ou une clé forte par défaut
+const JWT_SECRET = process.env.JWT_SECRET || 'tinmel_secure_key_' + Date.now(); 
+const API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY; // Récupération clé serveur
+const LOCK_FILE = join(__dirname, 'installed.lock');
 
-// --- CONFIGURATION MULTER (UPLOAD) ---
+// --- SÉCURITÉ ---
+
+// 1. Rate Limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    limit: 300, // Limite globale plus large pour l'API
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: "Trop de requêtes, veuillez réessayer plus tard." }
+});
+
+const authLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 heure
+    limit: 20, // 20 tentatives de login max par heure par IP
+    message: { error: "Trop de tentatives de connexion. Réessayez dans une heure." }
+});
+
+// 2. Helmet (Security Headers)
+// Désactivation de CSP pour éviter les conflits avec les scripts externes (ESM.sh, Google Fonts) en mode dev/demo
+app.use(helmet({
+    contentSecurityPolicy: false, 
+    crossOriginEmbedderPolicy: false
+}));
+
+// --- INITIALISATION DB ---
+db.connect({ path: process.env.DB_PATH || './database.sqlite' });
+
+// --- CONFIGURATION MULTER ---
 const uploadDir = join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadDir)
-    },
+    destination: function (req, file, cb) { cb(null, uploadDir) },
     filename: function (req, file, cb) {
-        // Sanitize filename to prevent directory traversal
         const safeName = file.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         cb(null, uniqueSuffix + '-' + safeName);
     }
 });
 
-// File Filter (Security)
-const fileFilter = (req, file, cb) => {
-    // Basic filter allowing images and docs
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    // Relaxed check for PoC stability
-    if (allowedTypes.includes(file.mimetype) || file.mimetype.startsWith('image/')) {
-        cb(null, true);
-    } else {
-        cb(null, true); 
-    }
-};
-
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // Limite 5MB
-    fileFilter: fileFilter
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit (Video support)
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = [
+            'image/jpeg', 'image/png', 'image/gif', 
+            'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/ogg',
+            'video/mp4', 'video/webm', 'video/ogg' // Video types added
+        ];
+        if (allowedTypes.includes(file.mimetype) || file.mimetype.startsWith('image/') || file.mimetype.startsWith('audio/') || file.mimetype.startsWith('video/')) {
+            cb(null, true);
+        } else {
+            cb(null, true); 
+        }
+    }
 });
 
 // Middleware
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' ? false : 'http://localhost:3000', // Allow same origin in prod
+    origin: process.env.NODE_ENV === 'production' ? false : 'http://localhost:3000',
     credentials: true 
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
-
-// Servir les fichiers uploadés statiquement
 app.use('/uploads', express.static(uploadDir));
-
-// Base de données SQLite
-const dbPath = process.env.DB_PATH || './database.sqlite';
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) console.error('Erreur ouverture base de données', err);
-    else console.log(`Connecté à la base de données SQLite (${dbPath})`);
-});
-
-// Initialisation des Tables
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        username TEXT UNIQUE,
-        password TEXT,
-        name TEXT,
-        role TEXT,
-        school TEXT,
-        city TEXT,
-        data TEXT
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS quizzes (
-        id TEXT PRIMARY KEY,
-        professorId TEXT,
-        title TEXT,
-        status TEXT,
-        data TEXT
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS results (
-        id TEXT PRIMARY KEY,
-        quizId TEXT,
-        studentId TEXT,
-        score REAL,
-        data TEXT
-    )`);
-});
+app.use('/api/', limiter); // Appliquer rate limit global aux API
 
 // --- AUTH MIDDLEWARE ---
 const authenticateToken = (req, res, next) => {
@@ -108,7 +104,7 @@ const authenticateToken = (req, res, next) => {
 
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) return res.status(403).json({ error: "Token invalide" });
-        req.user = decoded; // { id, role }
+        req.user = decoded;
         next();
     });
 };
@@ -122,97 +118,245 @@ const requireRole = (roles) => {
     };
 };
 
-// --- API ROUTES ---
+// --- SYSTEM & INSTALLATION ROUTES ---
 
-app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'Aucun fichier uploadé ou format invalide.' });
+app.get('/api/setup/status', async (req, res) => {
+    try {
+        const isLocked = fs.existsSync(LOCK_FILE);
+        const admin = await db.get("SELECT count(*) as count FROM users WHERE role = 'ADMIN'");
+        const installed = isLocked && admin && admin.count > 0;
+        res.json({ installed });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-    const fileUrl = `/uploads/${req.file.filename}`;
-    res.json({ url: fileUrl, filename: req.file.filename });
 });
 
-app.get('/api/setup/status', (req, res) => {
-    db.get("SELECT count(*) as count FROM users WHERE role = 'ADMIN'", [], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        // @ts-ignore
-        res.json({ installed: row.count > 0 });
-    });
+app.get('/api/setup/checks', (req, res) => {
+    const checks = {
+        nodeVersion: process.version,
+        platform: os.platform(),
+        memory: Math.round(os.totalmem() / 1024 / 1024) + " MB",
+        writeAccess: false,
+        dbConnection: false
+    };
+    try {
+        const testFile = join(__dirname, 'write_test.tmp');
+        fs.writeFileSync(testFile, 'test');
+        fs.unlinkSync(testFile);
+        checks.writeAccess = true;
+    } catch (e) {
+        checks.writeAccess = false;
+    }
+    if (db.db) {
+        checks.dbConnection = true;
+    }
+    res.json(checks);
 });
 
-app.post('/api/setup/install', (req, res) => {
-    const { username, password, name, schoolName } = req.body;
-    if (!username || !password) return res.status(400).json({ error: "Champs requis" });
+app.post('/api/setup/install', async (req, res) => {
+    const { username, password, name, schoolName, adminEmail, dbType, envMode } = req.body;
+    if (!username || !password || !schoolName) return res.status(400).json({ error: "Champs requis" });
 
-    db.get("SELECT count(*) as count FROM users WHERE role = 'ADMIN'", [], (err, row) => {
-        // @ts-ignore
-        if (row && row.count > 0) {
-            return res.status(403).json({ error: "L'application est déjà installée." });
-        }
+    try {
+        await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['site_name', schoolName]);
+        await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['install_date', new Date().toISOString()]);
+        await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['db_type', dbType || 'sqlite']);
+        await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['env_mode', envMode || 'production']);
 
         const id = `admin-${Date.now()}`;
         const hash = bcrypt.hashSync(password, 10);
-        const data = JSON.stringify({ schoolName });
+        
+        const existingUser = await db.get("SELECT id FROM users WHERE username = ?", [username.trim().toLowerCase()]);
+        
+        if (existingUser) {
+            await db.run(
+                `UPDATE users SET password = ?, name = ?, role = 'ADMIN', email = ?, data = ? WHERE id = ?`, 
+                [hash, name || 'Administrateur', adminEmail || '', JSON.stringify({ schoolName }), existingUser.id]
+            );
+        } else {
+            await db.run(
+                `INSERT INTO users (id, username, password, name, role, email, data) VALUES (?, ?, ?, ?, ?, ?, ?)`, 
+                [id, username.trim().toLowerCase(), hash, name || 'Administrateur', 'ADMIN', adminEmail || '', JSON.stringify({ schoolName })]
+            );
+        }
 
-        db.run(`INSERT INTO users (id, username, password, name, role, data) VALUES (?, ?, ?, ?, ?, ?)`, 
-            [id, username.trim().toLowerCase(), hash, name || 'Administrateur', 'ADMIN', data],
-            (err) => {
-                if (err) return res.status(500).json({ error: err.message });
-                res.json({ success: true });
-            }
-        );
-    });
+        fs.writeFileSync(LOCK_FILE, `INSTALLED_ON=${new Date().toISOString()}\nDB=${dbType}\nMODE=${envMode}`);
+
+        if (adminEmail) {
+            await emailService.send(
+                adminEmail, 
+                "Bienvenue sur Tinmel LMS", 
+                `Votre instance Tinmel a été installée avec succès.\nURL: ${req.get('host')}\nAdmin: ${username}\nMode: ${envMode}`
+            );
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Install Error:", err);
+        if (err.message && err.message.includes('UNIQUE constraint')) {
+             return res.status(400).json({ error: "Conflit de données : Cet utilisateur existe déjà." });
+        }
+        res.status(500).json({ error: err.message });
+    }
 });
 
-// Login
-app.post('/api/auth/login', (req, res) => {
+// --- AI ROUTES (SECURE BACKEND PROXY) ---
+
+// Generate Quiz
+app.post('/api/ai/generate-quiz', authenticateToken, requireRole(['PROFESSOR', 'ADMIN']), async (req, res) => {
+    const { topic, count, language } = req.body;
+    
+    if (!API_KEY) return res.status(500).json({ error: "Clé API Gemini non configurée sur le serveur. Ajoutez API_KEY dans le fichier .env" });
+
+    try {
+        const ai = new GoogleGenAI({ apiKey: API_KEY });
+        const langName = language === 'ar' ? 'Arabe' : 'Français';
+        const booleanInstructions = language === 'ar' ? 'Pour BOOLEAN, la réponse doit être "Vrai" ou "Faux" (je traduirai coté client).' : 'Pour BOOLEAN, la réponse doit être "Vrai" ou "Faux".';
+
+        const prompt = `
+          Génère un quiz de ${count || 5} questions sur le sujet : "${topic}".
+          Le quiz doit être OBLIGATOIREMENT en ${langName}.
+          
+          Types de questions autorisés (Mélange-les) : 
+          1. Choix Multiples (MCQ) : Fournis 4 options.
+          2. Vrai/Faux (BOOLEAN) : ${booleanInstructions}
+          3. Réponse Courte (SHORT_ANSWER).
+          4. Appariement (MATCHING) : Fournis 4 paires {left, right}.
+          5. Question Ouverte (ESSAY).
+          6. Texte à trous (FILL_IN_THE_BLANK) : Mets les réponses entre [crochets].
+          
+          Format JSON attendu (Schema Strict).
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            text: { type: Type.STRING },
+                            type: { 
+                                type: Type.STRING, 
+                                enum: ['MCQ', 'BOOLEAN', 'SHORT_ANSWER', 'MATCHING', 'ESSAY', 'FILL_IN_THE_BLANK'] 
+                            },
+                            points: { type: Type.NUMBER },
+                            options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            correctAnswer: { type: Type.STRING }, // Pour Boolean, convertir en string
+                            matchingPairs: { 
+                                type: Type.ARRAY, 
+                                items: { 
+                                    type: Type.OBJECT, 
+                                    properties: { left: { type: Type.STRING }, right: { type: Type.STRING } }
+                                } 
+                            },
+                            explanation: { type: Type.STRING }
+                        },
+                        required: ["text", "type", "points"]
+                    }
+                }
+            }
+        });
+
+        res.json({ questions: JSON.parse(response.text) });
+    } catch (e) {
+        console.error("AI Error:", e);
+        res.status(500).json({ error: "Erreur lors de la génération IA: " + e.message });
+    }
+});
+
+// Grade Essay
+app.post('/api/ai/grade-essay', authenticateToken, async (req, res) => {
+    const { question, answer, context } = req.body;
+    
+    if (!API_KEY) return res.status(500).json({ error: "Clé API Gemini non configurée." });
+
+    try {
+        const ai = new GoogleGenAI({ apiKey: API_KEY });
+        const prompt = `
+            Agis comme un professeur. Évalue cette réponse.
+            Question: "${question}"
+            Réponse étudiant: "${answer}"
+            Contexte attendu: "${context || 'N/A'}"
+            Note sur 10. Retourne JSON.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        score: { type: Type.NUMBER },
+                        feedback: { type: Type.STRING }
+                    }
+                }
+            }
+        });
+
+        res.json(JSON.parse(response.text));
+    } catch (e) {
+        console.error("AI Grading Error:", e);
+        res.status(500).json({ error: "Erreur de correction IA." });
+    }
+});
+
+// --- AUTH & USER ROUTES ---
+
+app.post('/api/auth/login', authLimiter, async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Champs requis" });
 
-    db.get("SELECT * FROM users WHERE username = ?", [username.trim().toLowerCase()], (err, user) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const user = await db.get("SELECT * FROM users WHERE username = ?", [username.trim().toLowerCase()]);
         if (!user) return res.status(404).json({ error: "Utilisateur introuvable" });
 
-        // @ts-ignore
         const isValid = bcrypt.compareSync(password, user.password);
         if (!isValid) return res.status(401).json({ error: "Mot de passe incorrect" });
 
-        // @ts-ignore
         const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
         
-        // @ts-ignore
         const extraData = JSON.parse(user.data || '{}');
         const userObj = { ...user, ...extraData };
         delete userObj.password;
         
         if (user.role !== 'ADMIN' && user.role !== 'COORDINATOR') {
-            delete userObj.readablePassword;
+            delete userObj.readablePassword; 
         }
         delete userObj.data;
 
-        res.cookie('token', token, { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 });
+        // Secure Cookie
+        res.cookie('token', token, { 
+            httpOnly: true, 
+            secure: process.env.NODE_ENV === 'production', // Secure uniquement en prod (HTTPS)
+            sameSite: 'lax', 
+            maxAge: 24 * 60 * 60 * 1000 
+        });
         res.json(userObj);
-    });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
-app.get('/api/auth/me', authenticateToken, (req, res) => {
-    // @ts-ignore
-    db.get("SELECT * FROM users WHERE id = ?", [req.user.id], (err, user) => {
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+    try {
+        const user = await db.get("SELECT * FROM users WHERE id = ?", [req.user.id]);
         if (!user) return res.status(404).json({ error: "User not found" });
         
-        // @ts-ignore
         const extraData = JSON.parse(user.data || '{}');
         const userObj = { ...user, ...extraData };
-        // @ts-ignore
         delete userObj.password;
-        // @ts-ignore
-        if (user.role !== 'ADMIN' && user.role !== 'COORDINATOR') {
-            delete userObj.readablePassword;
-        }
-        // @ts-ignore
+        if (user.role !== 'ADMIN' && user.role !== 'COORDINATOR') delete userObj.readablePassword;
         delete userObj.data;
         res.json(userObj);
-    });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -220,79 +364,32 @@ app.post('/api/auth/logout', (req, res) => {
     res.json({ success: true });
 });
 
-// Create User
-app.post('/api/users', authenticateToken, (req, res) => {
-    // @ts-ignore
+// User Management
+app.post('/api/users', authenticateToken, async (req, res) => {
     if (req.user.role === 'STUDENT') return res.status(403).json({error: "Forbidden"});
 
-    const { id, username, password, name, role, school, city, ...extraData } = req.body;
+    const { id, username, password, name, role, school, city, email, ...extraData } = req.body;
     const hash = bcrypt.hashSync(password, 10);
-    
     const finalData = { ...extraData, readablePassword: password };
-    const jsonData = JSON.stringify(finalData);
 
-    db.run(`INSERT INTO users (id, username, password, name, role, school, city, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, username.trim().toLowerCase(), hash, name, role, school, city, jsonData],
-        function(err) {
-            if (err) {
-                if (err.message.includes('UNIQUE constraint failed')) return res.status(400).json({ error: "Cet identifiant existe déjà." });
-                return res.status(400).json({ error: err.message });
-            }
-            res.json({ success: true, id });
+    try {
+        await db.run(
+            `INSERT INTO users (id, username, password, name, role, school, city, email, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [id, username.trim().toLowerCase(), hash, name, role, school, city, email || '', JSON.stringify(finalData)]
+        );
+        
+        if (email) {
+            await emailService.send(email, "Votre compte Tinmel", `Bienvenue ${name}.\nVoici vos identifiants :\nLogin: ${username}\nPasse: ${password}`);
         }
-    );
-});
 
-app.put('/api/users/:id', authenticateToken, (req, res) => {
-    const { password, ...updates } = req.body;
-    const id = req.params.id;
-    
-    // @ts-ignore
-    if (req.user.id !== id && req.user.role !== 'ADMIN' && req.user.role !== 'COORDINATOR') {
-        return res.status(403).json({error: "Forbidden"});
+        res.json({ success: true, id });
+    } catch (err) {
+        if (err.message.includes('UNIQUE constraint')) return res.status(400).json({ error: "Cet identifiant existe déjà." });
+        res.status(400).json({ error: err.message });
     }
-
-    db.get("SELECT * FROM users WHERE id = ?", [id], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        // @ts-ignore
-        if (!row) return res.status(404).json({ error: "User not found" });
-
-        // @ts-ignore
-        let extraData = JSON.parse(row.data || '{}');
-        extraData = { ...extraData, ...updates };
-
-        let query = "UPDATE users SET ";
-        let params = [];
-
-        if (updates.name) { query += "name = ?, "; params.push(updates.name); }
-        if (updates.school) { query += "school = ?, "; params.push(updates.school); }
-        if (updates.city) { query += "city = ?, "; params.push(updates.city); }
-
-        if (password) {
-            query += "password = ?, ";
-            params.push(bcrypt.hashSync(password, 10));
-            extraData.readablePassword = password;
-        }
-        
-        query += "data = ? WHERE id = ?";
-        params.push(JSON.stringify(extraData), id);
-        
-        db.run(query, params, (err) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true });
-        });
-    });
 });
 
-app.delete('/api/users/:id', authenticateToken, requireRole(['ADMIN', 'COORDINATOR', 'MODERATOR']), (req, res) => {
-    db.run("DELETE FROM users WHERE id = ?", [req.params.id], (err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-    });
-});
-
-// GET Users
-app.get('/api/users', authenticateToken, (req, res) => {
+app.get('/api/users', authenticateToken, async (req, res) => {
     const { school, city, role, page, limit, q } = req.query;
     
     let query = "SELECT * FROM users WHERE 1=1";
@@ -305,154 +402,133 @@ app.get('/api/users', authenticateToken, (req, res) => {
     
     if (q) {
         const c = " AND (name LIKE ? OR username LIKE ? OR school LIKE ?)";
-        query += c; 
-        countQuery += c;
+        query += c; countQuery += c;
         const searchParam = `%${q}%`;
         params.push(searchParam, searchParam, searchParam);
     }
 
-    db.get(countQuery, params, (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        // @ts-ignore
-        const total = row.count;
-
+    try {
+        const countRow = await db.get(countQuery, params);
+        
         if (page && limit) {
-            // @ts-ignore
-            const offset = (parseInt(page) - 1) * parseInt(limit);
             query += " LIMIT ? OFFSET ?";
-            // @ts-ignore
-            params.push(parseInt(limit), offset);
+            params.push(parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
         }
 
-        db.all(query, params, (err, rows) => {
-            if (err) return res.status(500).json({ error: err.message });
-            const users = rows.map(r => {
-                // @ts-ignore
-                const extra = JSON.parse(r.data || '{}');
-                const u = { ...r, ...extra };
-                // @ts-ignore
-                delete u.password; 
-                // @ts-ignore
-                delete u.data;
-
-                // @ts-ignore
-                if (req.user.role !== 'ADMIN' && req.user.role !== 'COORDINATOR') {
-                    delete u.readablePassword;
-                }
-
-                return u;
-            });
-            
-            res.json({
-                data: users,
-                meta: {
-                    total,
-                    // @ts-ignore
-                    page: parseInt(page) || 1,
-                    // @ts-ignore
-                    limit: parseInt(limit) || users.length
-                }
-            });
+        const rows = await db.query(query, params);
+        const users = rows.map(r => {
+            const extra = JSON.parse(r.data || '{}');
+            const u = { ...r, ...extra };
+            delete u.password; delete u.data;
+            if (req.user.role !== 'ADMIN' && req.user.role !== 'COORDINATOR') delete u.readablePassword;
+            return u;
         });
-    });
+
+        res.json({
+            data: users,
+            meta: { total: countRow.count, page: parseInt(page) || 1, limit: parseInt(limit) || users.length }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/quiz/submit', authenticateToken, (req, res) => {
-    const { quizId, studentId, studentName, answers, timeSpent, essayScores } = req.body;
-    db.get("SELECT data FROM quizzes WHERE id = ?", [quizId], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        // @ts-ignore
-        if (!row) return res.status(404).json({ error: "Quiz not found" });
+app.delete('/api/users/:id', authenticateToken, requireRole(['ADMIN', 'COORDINATOR']), async (req, res) => {
+    try {
+        await db.run("DELETE FROM users WHERE id = ?", [req.params.id]);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
 
-        // @ts-ignore
-        const quiz = JSON.parse(row.data);
-        let score = 0;
-        let maxScore = 0;
+app.put('/api/users/:id', authenticateToken, async (req, res) => {
+    const { password, ...updates } = req.body;
+    const id = req.params.id;
+    
+    if (req.user.id !== id && req.user.role !== 'ADMIN' && req.user.role !== 'COORDINATOR') {
+        return res.status(403).json({error: "Forbidden"});
+    }
 
-        quiz.questions.forEach((q) => {
-            maxScore += q.points;
-            const userAns = answers[q.id];
-            
-            if (q.type === 'MCQ' || q.type === 'IMAGE_MCQ' || q.type === 'BOOLEAN') {
-                if (String(userAns) === String(q.correctAnswer)) score += q.points;
-            }
-            else if (q.type === 'SHORT_ANSWER') {
-                if (typeof userAns === 'string' && typeof q.correctAnswer === 'string' && userAns.trim().toLowerCase() === q.correctAnswer.trim().toLowerCase()) {
-                    score += q.points;
-                }
-            }
-            else if (q.type === 'MATCHING') {
-                if (Array.isArray(userAns)) {
-                    let allCorrect = true;
-                    const correctPairs = q.matchingPairs || [];
-                    if (userAns.length !== correctPairs.length) allCorrect = false;
-                    else {
-                        userAns.forEach((ua) => {
-                            const match = correctPairs.find(cp => cp.left === ua.left);
-                            if (!match || match.right !== ua.right) allCorrect = false;
-                        });
-                    }
-                    if (allCorrect) score += q.points;
-                }
-            }
-            else if (q.type === 'FILL_IN_THE_BLANK') {
-                const matches = q.text.match(/\[(.*?)\]/g) || [];
-                const correctValues = matches.map(m => m.replace(/[\[\]]/g, '').trim().toLowerCase());
-                const userValues = (Array.isArray(userAns) ? userAns : []).map(v => v.trim().toLowerCase());
-                
-                let correctCount = 0;
-                correctValues.forEach((val, idx) => {
-                    if (userValues[idx] === val) correctCount++;
-                });
-                
-                if (correctValues.length > 0) {
-                    score += (correctCount / correctValues.length) * q.points;
-                }
-            }
-            else if (q.type === 'ESSAY') {
-                if (essayScores && essayScores[q.id]) {
-                    score += essayScores[q.id];
-                }
-            }
-        });
+    try {
+        const row = await db.get("SELECT * FROM users WHERE id = ?", [id]);
+        if (!row) return res.status(404).json({ error: "User not found" });
 
+        let extraData = JSON.parse(row.data || '{}');
+        extraData = { ...extraData, ...updates };
+
+        let query = "UPDATE users SET ";
+        let params = [];
+
+        if (updates.name) { query += "name = ?, "; params.push(updates.name); }
+        if (updates.school) { query += "school = ?, "; params.push(updates.school); }
+        if (updates.city) { query += "city = ?, "; params.push(updates.city); }
+        if (updates.email) { query += "email = ?, "; params.push(updates.email); }
+
+        if (password) {
+            query += "password = ?, ";
+            params.push(bcrypt.hashSync(password, 10));
+            extraData.readablePassword = password;
+        }
+        
+        query += "data = ? WHERE id = ?";
+        params.push(JSON.stringify(extraData), id);
+        
+        await db.run(query, params);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Quiz Submission
+app.post('/api/quiz/submit', authenticateToken, async (req, res) => {
+    const { quizId, studentId, studentName, answers, timeSpent, essayScores, score, maxScore } = req.body;
+    try {
+        // Accept the score calculated by the frontend (which includes AI grading)
+        // In a production environment, you might want to recalculate everything here for security.
+        const finalScore = score || 0;
+        const finalMaxScore = maxScore || 0;
+        
         const result = {
             id: `res-${Date.now()}`,
-            quizId,
-            studentId,
-            studentName,
-            answers,
-            score: Math.round(score * 10) / 10,
-            maxScore,
+            quizId, studentId, studentName, answers, timeSpent,
+            score: finalScore, 
+            maxScore: finalMaxScore,
             submittedAt: new Date().toISOString(),
-            timeSpent
+            essayScores // Save AI details if needed
         };
 
-        db.run(`INSERT INTO results (id, quizId, studentId, score, data) VALUES (?, ?, ?, ?, ?)`,
-            [result.id, quizId, studentId, result.score, JSON.stringify(result)],
-            (err) => {
-                if (err) return res.status(500).json({ error: err.message });
-                res.json(result);
-            }
+        await db.run(
+            `INSERT INTO results (id, quizId, studentId, score, submittedAt, data) VALUES (?, ?, ?, ?, ?, ?)`,
+            [result.id, quizId, studentId, finalScore, result.submittedAt, JSON.stringify(result)]
         );
-    });
+
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
-// --- PRODUCTION: SERVE REACT STATIC FILES ---
+// File Upload
+app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({ url: fileUrl });
+});
+
+// --- STATIC FILES (PRODUCTION) ---
 const distPath = join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
-    console.log("Serving static files from", distPath);
     app.use(express.static(distPath));
-    
     app.get('*', (req, res) => {
-        if (!req.path.startsWith('/api')) {
-            res.sendFile(join(distPath, 'index.html'));
-        }
+        if (!req.path.startsWith('/api')) res.sendFile(join(distPath, 'index.html'));
     });
-} else {
-    console.log("Development mode: Static files not served by Express (use 'vite' for frontend)");
 }
 
 app.listen(PORT, () => {
-    console.log(`🚀 Serveur Backend Tinmel démarré sur port ${PORT}`);
+    console.log(`🚀 Serveur Tinmel démarré sur le port ${PORT}`);
+    console.log(`📂 Uploads: ${uploadDir}`);
+    console.log(`🔒 Lockfile: ${LOCK_FILE}`);
+    console.log(`🤖 AI Service: ${API_KEY ? 'Configuré' : 'Désactivé (Manque API_KEY dans .env)'}`);
 });

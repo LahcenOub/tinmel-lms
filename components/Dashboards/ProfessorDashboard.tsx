@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { User, Quiz, Lesson, LessonType, QuestionType, UserRole, Message, QuizResult, TreasureCode, SchoolEvent, Question } from '../../types';
@@ -1207,9 +1208,23 @@ const ProfessorDashboard: React.FC<{ user: User, onLogout: () => void }> = ({ us
 
     const isActive = (path: string) => location.pathname.includes(`/professor/${path}`);
 
+    // Auto-restore Active Whiteboard Session
+    useEffect(() => {
+        const activeSession = StorageService.getActiveWhiteboardForHost(currentUser.id);
+        if (activeSession) {
+            setWbSessionId(activeSession.id);
+        }
+    }, [currentUser.id]);
+
     const handleCreateWhiteboardClick = () => {
-        setShowWhiteboardConfig(true);
-        setWbClasses([]);
+        // Double check if one exists already
+        const activeSession = StorageService.getActiveWhiteboardForHost(currentUser.id);
+        if (activeSession) {
+            setWbSessionId(activeSession.id);
+        } else {
+            setShowWhiteboardConfig(true);
+            setWbClasses([]);
+        }
     };
 
     const startWhiteboardSession = () => {
@@ -1230,8 +1245,14 @@ const ProfessorDashboard: React.FC<{ user: User, onLogout: () => void }> = ({ us
         setShowWhiteboardConfig(false);
     };
 
+    const handleWhiteboardExit = () => {
+        // Just clear local state, the session remains active in storage 
+        // until explicitly ended inside WhiteboardRoom
+        setWbSessionId(null);
+    };
+
     if (wbSessionId) {
-        return <WhiteboardRoom user={currentUser} sessionId={wbSessionId} onExit={() => setWbSessionId(null)} />;
+        return <WhiteboardRoom user={currentUser} sessionId={wbSessionId} onExit={handleWhiteboardExit} />;
     }
 
     return (

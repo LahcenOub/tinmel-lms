@@ -3,14 +3,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, Link } from 'react-router-dom';
 import { User, UserRole } from './types';
 import { StorageService } from './services/storageService';
-import { ApiService } from './services/apiService';
+import { ApiService, SystemChecks } from './services/apiService';
 import AdminDashboard from './components/Dashboards/AdminDashboard';
 import ProfessorDashboard from './components/Dashboards/ProfessorDashboard';
 import StudentDashboard from './components/Dashboards/StudentDashboard';
 import ModeratorDashboard from './components/Dashboards/ModeratorDashboard';
 import CoordinatorDashboard from './components/Dashboards/CoordinatorDashboard';
 import AuthGuard from './components/Auth/AuthGuard';
-import { GraduationCap, ArrowLeft, Languages, Building2, AlertTriangle, Loader2, CheckCircle, Lock, Database, ShieldCheck, Github, ExternalLink, Trash2, Server, Star, Brain, PenTool } from 'lucide-react';
+import { GraduationCap, ArrowLeft, Languages, Building2, AlertTriangle, Loader2, CheckCircle, Lock, Database, ShieldCheck, Github, ExternalLink, Trash2, Server, Star, Brain, PenTool, Check, HardDrive, Cpu, Settings, Play } from 'lucide-react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
 // Background Component
@@ -78,92 +78,240 @@ const CalligraphyBackground = () => {
 // --- INSTALLATION WIZARD COMPONENT ---
 const InstallationWizard: React.FC<{ onInstalled: () => void }> = ({ onInstalled }) => {
     const { t, dir } = useLanguage();
-    const [formData, setFormData] = useState({
-        schoolName: '',
-        name: 'Administrateur',
-        username: 'admin',
-        password: ''
-    });
+    const [step, setStep] = useState(0); // 0: Welcome, 1: Checks, 2: DB/Env, 3: App Info, 4: Finish
     const [loading, setLoading] = useState(false);
+    const [systemChecks, setSystemChecks] = useState<SystemChecks | null>(null);
     const [error, setError] = useState('');
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const [config, setConfig] = useState({
+        envMode: 'production', // 'development' | 'production'
+        dbType: 'sqlite', // 'sqlite' | 'mysql'
+        schoolName: '',
+        adminEmail: '',
+        username: 'admin',
+        password: '',
+        name: 'Administrateur'
+    });
+
+    // Step 1: Perform System Checks
+    useEffect(() => {
+        if (step === 1) {
+            setLoading(true);
+            ApiService.getSystemChecks().then(checks => {
+                setSystemChecks(checks);
+                setTimeout(() => setLoading(false), 800); // Small artificial delay for UX
+            });
+        }
+    }, [step]);
+
+    const handleInstall = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError('');
         
-        const success = await ApiService.installApp(formData);
+        const success = await ApiService.installApp(config);
         
-        setLoading(false);
         if (success) {
-            onInstalled();
+            setStep(4); // Move to final success step
         } else {
             setError(t('installError'));
         }
+        setLoading(false);
     };
 
-    return (
-        <div className="z-50 w-full max-w-lg px-4" dir={dir}>
-            <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden border border-white/50 animate-fade-in">
-                <div className="bg-gradient-to-r from-blue-700 to-indigo-700 p-8 text-white text-center">
-                    <div className="bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-                        <Database className="w-8 h-8 text-white"/>
-                    </div>
-                    <h2 className="text-2xl font-bold mb-2">{t('installTitle')}</h2>
-                    <p className="text-blue-100 text-sm">{t('installDesc')}</p>
-                </div>
-                
-                <form onSubmit={handleSubmit} className="p-8 space-y-6">
-                    {error && (
-                        <div className="p-3 bg-red-50 text-red-600 text-sm rounded border border-red-200 flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4"/> {error}
+    const renderStepContent = () => {
+        switch(step) {
+            case 0: // Welcome
+                return (
+                    <div className="text-center space-y-6">
+                        <div className="w-24 h-24 bg-blue-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-blue-500/50 mb-6">
+                            <GraduationCap className="w-12 h-12 text-white" />
                         </div>
-                    )}
+                        <div>
+                            <h1 className="text-3xl font-black text-gray-800 font-logo">Tinmel LMS</h1>
+                            <p className="text-gray-500 text-sm mt-2 font-mono">Version 1.0.0 (Beta)</p>
+                        </div>
+                        <p className="text-gray-600">
+                            Bienvenue dans l'assistant d'installation. Nous allons configurer votre plateforme éducative en quelques étapes simples.
+                        </p>
+                        <button onClick={() => setStep(1)} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold shadow-lg transition-transform hover:scale-[1.02] flex items-center justify-center gap-2">
+                            Commencer l'installation <ArrowLeft className="w-5 h-5 rotate-180 rtl:rotate-0"/>
+                        </button>
+                    </div>
+                );
+            case 1: // System Checks
+                return (
+                    <div className="space-y-6">
+                        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                            <Server className="w-6 h-6 text-indigo-600"/> Vérification Système
+                        </h2>
+                        {loading ? (
+                            <div className="py-12 flex flex-col items-center text-gray-500">
+                                <Loader2 className="w-10 h-10 animate-spin mb-4 text-indigo-500"/>
+                                <p>Analyse de l'environnement...</p>
+                            </div>
+                        ) : (
+                            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="flex items-center gap-2 text-sm font-medium text-gray-700"><CheckCircle className="w-4 h-4 text-green-500"/> Node.js</span>
+                                    <span className="font-mono text-xs bg-white px-2 py-1 rounded border">{systemChecks?.nodeVersion}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="flex items-center gap-2 text-sm font-medium text-gray-700"><CheckCircle className="w-4 h-4 text-green-500"/> Permissions Écriture</span>
+                                    <span className={`font-mono text-xs px-2 py-1 rounded border ${systemChecks?.writeAccess ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                        {systemChecks?.writeAccess ? 'OK' : 'FAIL'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="flex items-center gap-2 text-sm font-medium text-gray-700"><CheckCircle className="w-4 h-4 text-green-500"/> Base de Données</span>
+                                    <span className="font-mono text-xs bg-green-50 text-green-700 px-2 py-1 rounded border border-green-200">Prêt (SQLite)</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="flex items-center gap-2 text-sm font-medium text-gray-700"><HardDrive className="w-4 h-4 text-gray-500"/> Mémoire</span>
+                                    <span className="font-mono text-xs bg-white px-2 py-1 rounded border">{systemChecks?.memory}</span>
+                                </div>
+                            </div>
+                        )}
+                        {!loading && (
+                            <button onClick={() => setStep(2)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-bold shadow-md">
+                                Continuer
+                            </button>
+                        )}
+                    </div>
+                );
+            case 2: // DB & Env
+                return (
+                    <div className="space-y-6">
+                        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                            <Settings className="w-6 h-6 text-gray-600"/> Configuration
+                        </h2>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Environnement</label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button 
+                                        onClick={() => setConfig({...config, envMode: 'production'})}
+                                        className={`p-3 rounded-lg border-2 text-center transition ${config.envMode === 'production' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 hover:border-gray-300'}`}
+                                    >
+                                        <div className="font-bold text-sm">Production</div>
+                                        <div className="text-[10px] opacity-70">Recommandé</div>
+                                    </button>
+                                    <button 
+                                        onClick={() => setConfig({...config, envMode: 'development'})}
+                                        className={`p-3 rounded-lg border-2 text-center transition ${config.envMode === 'development' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 hover:border-gray-300'}`}
+                                    >
+                                        <div className="font-bold text-sm">Développement</div>
+                                        <div className="text-[10px] opacity-70">Logs détaillés</div>
+                                    </button>
+                                </div>
+                            </div>
 
-                    <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Base de Données</label>
+                                <div className="space-y-2">
+                                    <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${config.dbType === 'sqlite' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                                        <input type="radio" name="db" checked={config.dbType === 'sqlite'} onChange={() => setConfig({...config, dbType: 'sqlite'})} className="text-blue-600 focus:ring-blue-500" />
+                                        <div>
+                                            <div className="font-bold text-sm text-gray-800">SQLite (Embarqué)</div>
+                                            <div className="text-xs text-gray-500">Aucune configuration requise. Idéal pour les petites écoles.</div>
+                                        </div>
+                                    </label>
+                                    <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed">
+                                        <input type="radio" name="db" disabled />
+                                        <div>
+                                            <div className="font-bold text-sm text-gray-800">MySQL / PostgreSQL</div>
+                                            <div className="text-xs text-gray-500">Bientôt disponible pour les grandes structures.</div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button onClick={() => setStep(1)} className="px-4 py-3 text-gray-500 hover:bg-gray-100 rounded-lg font-bold">Retour</button>
+                            <button onClick={() => setStep(3)} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-bold shadow-md">Suivant</button>
+                        </div>
+                    </div>
+                );
+            case 3: // App Info
+                return (
+                    <form onSubmit={handleInstall} className="space-y-5">
+                        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                            <Building2 className="w-6 h-6 text-blue-600"/> Informations
+                        </h2>
+                        
+                        {error && (
+                            <div className="p-3 bg-red-50 text-red-600 text-sm rounded border border-red-200 flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4"/> {error}
+                            </div>
+                        )}
+
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">{t('siteName')}</label>
-                            <input
-                                required
-                                type="text"
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                value={formData.schoolName}
-                                onChange={e => setFormData({...formData, schoolName: e.target.value})}
-                                placeholder="Ex: École Al Massira"
-                            />
+                            <input required type="text" className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                value={config.schoolName} onChange={e => setConfig({...config, schoolName: e.target.value})} placeholder="Ex: École Al Massira" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Email Admin (Optionnel)</label>
+                            <input type="email" className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                value={config.adminEmail} onChange={e => setConfig({...config, adminEmail: e.target.value})} />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">{t('adminUsername')}</label>
-                                <input
-                                    required
-                                    type="text"
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={formData.username}
-                                    onChange={e => setFormData({...formData, username: e.target.value})}
-                                />
+                                <input required type="text" className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    value={config.username} onChange={e => setConfig({...config, username: e.target.value})} />
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">{t('adminPassword')}</label>
-                                <input
-                                    required
-                                    type="password"
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={formData.password}
-                                    onChange={e => setFormData({...formData, password: e.target.value})}
-                                />
+                                <input required type="password" className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    value={config.password} onChange={e => setConfig({...config, password: e.target.value})} />
                             </div>
                         </div>
-                    </div>
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-4 px-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition transform hover:scale-[1.02] shadow-lg flex justify-center items-center gap-2"
-                    >
-                        {loading ? t('loading') : <>{t('installBtn')} <CheckCircle className="w-5 h-5 rtl:flip"/></>}
-                    </button>
-                </form>
+                        <div className="flex gap-3 pt-2">
+                            <button type="button" onClick={() => setStep(2)} className="px-4 py-3 text-gray-500 hover:bg-gray-100 rounded-lg font-bold">Retour</button>
+                            <button type="submit" disabled={loading} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold shadow-md flex justify-center items-center gap-2">
+                                {loading ? <Loader2 className="w-5 h-5 animate-spin"/> : <>{t('installBtn')} <CheckCircle className="w-5 h-5"/></>}
+                            </button>
+                        </div>
+                    </form>
+                );
+            case 4: // Success
+                return (
+                    <div className="text-center py-8">
+                        <div className="w-20 h-20 bg-green-100 rounded-full mx-auto flex items-center justify-center mb-6 animate-bounce">
+                            <CheckCircle className="w-10 h-10 text-green-600" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2">Installation Terminée !</h2>
+                        <p className="text-gray-600 mb-8">Tinmel LMS est prêt à être utilisé.</p>
+                        <button onClick={onInstalled} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-bold shadow-lg transition-transform hover:scale-105">
+                            Accéder à la plateforme
+                        </button>
+                    </div>
+                );
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center relative overflow-hidden font-sans" dir={dir}>
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+            <div className="z-50 w-full max-w-lg px-4">
+                {/* Progress Bar */}
+                {step > 0 && step < 4 && (
+                    <div className="flex gap-2 mb-6 justify-center">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className={`h-1.5 w-8 rounded-full transition-colors ${step >= i ? 'bg-white' : 'bg-white/20'}`}></div>
+                        ))}
+                    </div>
+                )}
+
+                <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden border border-white/50 animate-fade-in">
+                    <div className="p-8">
+                        {renderStepContent()}
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -264,12 +412,8 @@ const LoginPage: React.FC<LoginProps> = ({ role, onLoginSuccess }) => {
         e.preventDefault();
         setError('');
         
-        // Try API Login first (HttpOnly Cookie)
         const foundUser = await ApiService.login(username, password);
-        
-        // Fallback to LocalStorage (Demo/Offline)
         const localUser = !foundUser ? StorageService.login(username, password) : null;
-        
         const finalUser = foundUser || localUser;
 
         if (finalUser) {
@@ -293,48 +437,50 @@ const LoginPage: React.FC<LoginProps> = ({ role, onLoginSuccess }) => {
 
     if (role === 'ADMIN') {
         return (
-            <div className="z-10 w-full max-w-md px-4 animate-fade-in">
-                <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
-                    <div className="bg-slate-800 p-8 text-center border-b border-slate-700">
-                        <Server className="w-12 h-12 text-blue-400 mx-auto mb-4"/>
-                        <h1 className="text-2xl font-bold text-white mb-1">Administration Centrale</h1>
-                        <p className="text-slate-400 text-sm">Accès sécurisé réservé</p>
-                    </div>
-                    <div className="p-8">
-                    <form onSubmit={handleLogin} className="space-y-5">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">{t('username')}</label>
-                            <input
-                                type="text"
-                                className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500 transition shadow-sm"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                autoFocus
-                            />
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="z-10 w-full max-w-md px-4 animate-fade-in">
+                    <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
+                        <div className="bg-slate-800 p-8 text-center border-b border-slate-700">
+                            <Server className="w-12 h-12 text-blue-400 mx-auto mb-4"/>
+                            <h1 className="text-2xl font-bold text-white mb-1">Administration Centrale</h1>
+                            <p className="text-slate-400 text-sm">Accès sécurisé réservé</p>
                         </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">{t('password')}</label>
-                            <input
-                                type="password"
-                                className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500 transition shadow-sm"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
-                        </div>
-                        {error && (
-                            <div className="p-3 bg-red-50 text-red-600 text-sm rounded border border-red-200 flex items-center gap-2">
-                                <AlertTriangle className="w-4 h-4"/> {error}
+                        <div className="p-8">
+                        <form onSubmit={handleLogin} className="space-y-5">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">{t('username')}</label>
+                                <input
+                                    type="text"
+                                    className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500 transition shadow-sm"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    autoFocus
+                                />
                             </div>
-                        )}
-                        <button type="submit" className="w-full py-3 px-4 bg-slate-800 text-white font-bold rounded hover:bg-slate-900 transition shadow-lg">
-                            {t('login')}
-                        </button>
-                    </form>
-                    <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col gap-2">
-                            <button onClick={() => navigate('/')} className="text-center text-xs text-blue-500 hover:underline mt-2">
-                                &larr; Retour au portail public
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">{t('password')}</label>
+                                <input
+                                    type="password"
+                                    className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500 transition shadow-sm"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                />
+                            </div>
+                            {error && (
+                                <div className="p-3 bg-red-50 text-red-600 text-sm rounded border border-red-200 flex items-center gap-2">
+                                    <AlertTriangle className="w-4 h-4"/> {error}
+                                </div>
+                            )}
+                            <button type="submit" className="w-full py-3 px-4 bg-slate-800 text-white font-bold rounded hover:bg-slate-900 transition shadow-lg">
+                                {t('login')}
                             </button>
-                    </div>
+                        </form>
+                        <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col gap-2">
+                                <button onClick={() => navigate('/')} className="text-center text-xs text-blue-500 hover:underline mt-2">
+                                    &larr; Retour au portail public
+                                </button>
+                        </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -396,93 +542,43 @@ const LoginPage: React.FC<LoginProps> = ({ role, onLoginSuccess }) => {
     );
 };
 
-const AdminPortal: React.FC<{ onLoginSuccess: (user: User) => void }> = ({ onLoginSuccess }) => {
-    const [isInstalled, setIsInstalled] = useState<boolean | null>(null);
-    const [loading, setLoading] = useState(true);
-    const { dir } = useLanguage();
-    const navigate = useNavigate();
-    const location = useLocation();
-    const user = StorageService.getSession();
-
-    useEffect(() => {
-        const check = async () => {
-            const installed = await ApiService.checkInstallStatus();
-            setIsInstalled(installed);
-            setLoading(false);
-        };
-        check();
-    }, []);
-
-    const handleHardReset = () => {
-        if (!confirm("⚠️ ZONE DE DANGER ⚠️\n\nVous êtes sur le point d'effacer TOUTES les données.\n\nContinuer ?")) return;
-        const inputKey = prompt("🔒 CONFIRMATION REQUISE\n\nEntrez 'RESET' pour confirmer l'effacement total.");
-
-        if (inputKey === 'RESET') {
-            localStorage.clear();
-            sessionStorage.clear();
-            window.location.href = '/tinmelad?setup=true';
-        } else {
-            alert("Annulé.");
-        }
-    };
-
-    if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white"><Loader2 className="animate-spin w-8 h-8"/></div>;
-
-    const showSetup = !isInstalled || location.search.includes('setup=true');
-
-    return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center relative overflow-hidden font-sans" dir={dir}>
-             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-             
-             {showSetup ? (
-                 <InstallationWizard onInstalled={() => { setIsInstalled(true); navigate('/tinmelad/login'); }} />
-             ) : (
-                <Routes>
-                    <Route path="login" element={
-                        user && user.role === UserRole.ADMIN ? (
-                             <Navigate to="/admin" replace />
-                        ) : (
-                            <>
-                                <LoginPage role="ADMIN" onLoginSuccess={onLoginSuccess} />
-                                {/* Factory Reset button hidden on login page for emergencies */}
-                                <div className="absolute bottom-4 left-4 z-20">
-                                    <button onClick={handleHardReset} className="text-xs text-red-500/50 hover:text-red-500 flex items-center gap-1 transition">
-                                        <Trash2 className="w-3 h-3"/> Reset
-                                    </button>
-                                </div>
-                            </>
-                        )
-                    } />
-                    <Route path="*" element={<Navigate to="login" replace />} />
-                </Routes>
-             )}
-        </div>
-    );
-};
-
 // --- MAIN APP COMPONENT ---
 
 const AppContent: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [isInstalled, setIsInstalled] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [autoLaunchQuizId, setAutoLaunchQuizId] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-      // Init logic
       const init = async () => {
           setLoading(true);
           
-          // 1. Try Backend Session (HttpOnly Cookies)
+          // 1. Check Install Status
+          try {
+              const installStatus = await ApiService.checkInstallStatus();
+              setIsInstalled(installStatus);
+              
+              if (!installStatus) {
+                  setLoading(false);
+                  return; // Stop here if not installed, show Wizard
+              }
+          } catch (e) {
+              console.warn("Could not check install status", e);
+              setIsInstalled(false); // Default to not installed on error
+              setLoading(false);
+              return;
+          }
+
+          // 2. Check Session
           const apiUser = await ApiService.checkSession();
           if (apiUser) {
               setUser(apiUser);
           } else {
-              // 2. Fallback to LocalStorage (Demo Mode / Offline)
               const session = StorageService.getSession();
-              if (session) {
-                  setUser(session);
-              }
+              if (session) setUser(session);
           }
           
           const params = new URLSearchParams(window.location.search);
@@ -506,14 +602,14 @@ const AppContent: React.FC = () => {
   };
 
   const handleLoginSuccess = (loggedInUser: User) => {
-      StorageService.saveSession(loggedInUser); // Backup for offline mode
+      StorageService.saveSession(loggedInUser);
       setUser(loggedInUser);
       navigate(getDashboardPath(loggedInUser.role));
   };
 
   const handleLogout = async () => {
-      await ApiService.logout(); // Clear Cookie
-      StorageService.clearSession(); // Clear LocalStorage
+      await ApiService.logout();
+      StorageService.clearSession();
       setUser(null);
       navigate('/');
   };
@@ -529,6 +625,11 @@ const AppContent: React.FC = () => {
       );
   }
 
+  // Si pas installé, afficher le Wizard
+  if (isInstalled === false) {
+      return <InstallationWizard onInstalled={() => { setIsInstalled(true); window.location.reload(); }} />;
+  }
+
   return (
     <Routes>
         {/* Public Routes */}
@@ -542,44 +643,19 @@ const AppContent: React.FC = () => {
             !user ? <LoginPage role="STAFF" onLoginSuccess={handleLoginSuccess} /> : <Navigate to={getDashboardPath(user.role)} replace />
         } />
 
-        {/* Admin Portal Routes */}
+        {/* Admin Portal Route (Legacy/Direct) */}
         <Route path="/tinmelad/*" element={
-            <AdminPortal onLoginSuccess={handleLoginSuccess} />
+            !user ? <LoginPage role="ADMIN" onLoginSuccess={handleLoginSuccess} /> : 
+            (user.role === UserRole.ADMIN ? <Navigate to="/admin" replace /> : <Navigate to="/" replace />)
         } />
 
-        {/* Protected Routes - Role Based Separation via AuthGuard */}
-        
-        <Route path="/admin/*" element={
-            <AuthGuard user={user} requiredRole={UserRole.ADMIN}>
-                <AdminDashboard onLogout={handleLogout} />
-            </AuthGuard>
-        } />
+        {/* Protected Routes */}
+        <Route path="/admin/*" element={<AuthGuard user={user} requiredRole={UserRole.ADMIN}><AdminDashboard onLogout={handleLogout} /></AuthGuard>} />
+        <Route path="/professor/*" element={<AuthGuard user={user} requiredRole={UserRole.PROFESSOR}><ProfessorDashboard user={user!} onLogout={handleLogout} /></AuthGuard>} />
+        <Route path="/student/*" element={<AuthGuard user={user} requiredRole={UserRole.STUDENT}><StudentDashboard user={user!} onLogout={handleLogout} autoLaunchQuizId={autoLaunchQuizId} /></AuthGuard>} />
+        <Route path="/coordinator/*" element={<AuthGuard user={user} requiredRole={UserRole.COORDINATOR}><CoordinatorDashboard user={user!} onLogout={handleLogout} /></AuthGuard>} />
+        <Route path="/moderator/*" element={<AuthGuard user={user} requiredRole={UserRole.MODERATOR}><ModeratorDashboard user={user!} onLogout={handleLogout} /></AuthGuard>} />
 
-        <Route path="/professor/*" element={
-            <AuthGuard user={user} requiredRole={UserRole.PROFESSOR}>
-                <ProfessorDashboard user={user!} onLogout={handleLogout} />
-            </AuthGuard>
-        } />
-
-        <Route path="/student/*" element={
-            <AuthGuard user={user} requiredRole={UserRole.STUDENT}>
-                <StudentDashboard user={user!} onLogout={handleLogout} autoLaunchQuizId={autoLaunchQuizId} />
-            </AuthGuard>
-        } />
-
-        <Route path="/coordinator/*" element={
-            <AuthGuard user={user} requiredRole={UserRole.COORDINATOR}>
-                <CoordinatorDashboard user={user!} onLogout={handleLogout} />
-            </AuthGuard>
-        } />
-
-        <Route path="/moderator/*" element={
-            <AuthGuard user={user} requiredRole={UserRole.MODERATOR}>
-                <ModeratorDashboard user={user!} onLogout={handleLogout} />
-            </AuthGuard>
-        } />
-
-        {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

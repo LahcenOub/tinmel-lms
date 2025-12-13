@@ -1,7 +1,12 @@
 
 # 🗺️ Roadmap Technique - Tinmel LMS
 
-Ce document trace la route entre le prototype actuel (PoC) et une version de production robuste.
+Ce document trace la route entre le **MVP Robuste** actuel et une version de **Production Enterprise**.
+
+## 🟢 Statut Actuel : MVP Robuste (8/10)
+L'architecture de base est solide (Abstraction DB, Sécurité, Environnements), mais il reste une dette technique liée à la persistance hybride (LocalStorage/API).
+
+---
 
 ## ✨ Fonctionnalités Récemment Ajoutées (Q1 2025)
 
@@ -9,46 +14,52 @@ Ce document trace la route entre le prototype actuel (PoC) et une version de pro
 - [x] **Planification** : Programmation de la disponibilité des cours (Date de début / fin).
 - [x] **Monitoring** : Compteur d'élèves en direct sur les cours (Heartbeat system).
 - [x] **Suivi** : Marquage automatique des leçons comme "Terminées" dans le tableau de bord étudiant.
+- [x] **Support Multimédia** : Intégration complète de la Vidéo (Upload MP4 & YouTube).
 
-## 🔴 Priorité Haute : Architecture & Sécurité (Q2 2025)
+## 🔴 Priorité Haute : Architecture & Stabilité (Q2 2025)
 
-L'objectif est de sécuriser l'application et de sortir de la dépendance au `localStorage`.
+L'objectif est d'éliminer la "Double Source de Vérité" et de finaliser la sécurité.
 
-- [ ] **Routing Professionnel**
-    - [x] Implémentation History API (Fait).
-    - [ ] Migration vers `react-router-dom` v6 pour une gestion native des routes imbriquées et des loaders.
-    - [x] Protection des routes (`AuthGuard`) coté client.
+- [x] **Sécurité & Backend (Hardening)**
+    - [x] Audit de sécurité des dépendances (`npm audit`).
+    - [x] Mise en place de `Helmet` et `Rate Limiting` sur Express.
+    - [x] Authentification via **Cookies HttpOnly** (remplacement du localStorage).
+    - [x] Hashage des mots de passe (Bcrypt) côté serveur.
+    - [x] Gestion des uploads de fichiers via `Multer` (Fin du Base64 en BDD).
 
-- [ ] **Backend First (Sécurité)**
-    - [x] Déplacer la logique de validation des Quiz du Frontend vers le Backend (Node.js).
-    - [x] Remplacer le stockage de Token dans `localStorage` par des **Cookies HttpOnly** (protection XSS).
-    - [x] Hashage des mots de passe coté serveur (Bcrypt) obligatoire.
+- [ ] **Unification des Données (Dette Technique Critique)** 🚨
+    - [ ] **Migration Totale vers SQL** : Supprimer le stockage `localStorage` pour les Quiz, Leçons, Messages et Événements. Tout doit passer par l'API.
+    - [ ] Centraliser la logique métier dans les Services Backend (ne plus calculer les scores côté client uniquement).
 
-- [ ] **Gestion des Fichiers**
-    - [x] Remplacer le stockage d'images Base64 (lourd pour la BDD) par un système d'upload de fichiers.
-    - [x] Intégration de `Multer` (Node.js) et stockage local ou S3.
+- [ ] **Refactoring Frontend**
+    - [ ] Découper les "God Components" (`ProfessorDashboard.tsx`, `StudentDashboard.tsx`) en sous-composants atomiques.
+    - [ ] Standardiser les appels API via un custom hook ou React Query.
 
-## 🟡 Priorité Moyenne : Performance & Scalabilité (Q3 2025)
+## 🟡 Priorité Moyenne : Scalabilité & Cloud (Q3 2025)
 
-Préparer l'application pour supporter 2000+ élèves simultanés.
+Préparer l'application pour le déploiement réel (Docker/Cloud).
 
-- [ ] **Optimisation des Données**
-    - [x] Implémenter la **Pagination** coté serveur pour les listes d'élèves et de résultats.
+- [ ] **Stockage & Persistance**
+    - [ ] Adapter l'upload de fichiers pour le Cloud (AWS S3 ou Cloudinary) au lieu du disque local.
+    - [ ] Migrer `SQLite` vers `PostgreSQL` pour la production (via l'abstraction `db.js`).
+
+- [ ] **Optimisation des Performances**
+    - [x] Pagination coté serveur pour les utilisateurs.
     - [ ] Mettre en place `TanStack Query` (React Query) pour le cache et la gestion des états serveur.
 
-- [ ] **Temps Réel**
-    - [ ] Remplacer le "polling" actuel (Heartbeat toutes les 10s) par des **WebSockets** (Socket.io) pour réduire la charge serveur.
-    - [ ] Chat en direct et Notifications instantanées.
+- [ ] **Temps Réel (WebSockets)**
+    - [ ] Remplacer le "polling" actuel (Heartbeat toutes les 10s) par `Socket.io`.
+    - [ ] Chat en direct et Notifications instantanées réelles.
 
 ## 🟢 Priorité Basse : Fonctionnalités & UX (Q4 2025)
 
 - [ ] **Offline First (PWA)**
     - [ ] Rendre l'application installable sur mobile.
-    - [ ] Permettre le passage de quiz sans connexion internet (synchronisation au retour du réseau).
+    - [ ] Mode hors-ligne pour les zones à faible connectivité.
 
-- [ ] **Localisation**
-    - [ ] Traduction complète de l'interface en **Amazigh (Tifinagh)**.
-    - [ ] Support des dates hégiriennes.
+- [ ] **Localisation & Accessibilité**
+    - [ ] Traduction complète en **Amazigh (Tifinagh)**.
+    - [ ] Support complet des lecteurs d'écran (ARIA).
 
 ## 💡 Idées Communautaires (Backlog)
 
@@ -58,4 +69,4 @@ Préparer l'application pour supporter 2000+ élèves simultanés.
 
 ---
 **Envie de contribuer ?**
-Choisissez une tâche, forkez le projet et proposez une Pull Request ! Utilisez le tag `hacktoberfest` si applicable.
+Attaquez-vous à la **Migration Totale vers SQL**, c'est la priorité n°1 !

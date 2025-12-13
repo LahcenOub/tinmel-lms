@@ -46,6 +46,8 @@ export interface SchoolStructure {
 export enum QuestionType {
   MCQ = 'MCQ', 
   IMAGE_MCQ = 'IMAGE_MCQ', 
+  AUDIO = 'AUDIO', 
+  VIDEO = 'VIDEO', // New Type
   BOOLEAN = 'BOOLEAN', 
   ESSAY = 'ESSAY', 
   MATCHING = 'MATCHING', 
@@ -62,7 +64,9 @@ export interface Question {
   id: string;
   type: QuestionType;
   text: string;
-  imageUrl?: string; 
+  imageUrl?: string;
+  audioUrl?: string; 
+  videoUrl?: string; // New Field
   points: number;
   options?: string[]; 
   correctAnswer?: string | string[] | boolean | MatchingPair[]; 

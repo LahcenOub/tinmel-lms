@@ -4,7 +4,7 @@ import { Quiz, Question, QuestionType, QuizResult } from '../../types';
 import { GeminiService } from '../../services/geminiService';
 import { StorageService } from '../../services/storageService';
 import { ApiService } from '../../services/apiService';
-import { CheckCircle, Clock, Timer, ArrowRight, ArrowLeft, Mic, MicOff } from 'lucide-react';
+import { CheckCircle, Clock, Timer, ArrowRight, ArrowLeft, Mic, MicOff, Music, MonitorPlay } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 interface QuizTakerProps {
@@ -44,6 +44,12 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
     setAnswers(prev => ({ ...prev, [qId]: val }));
   };
   
+  const getYoutubeEmbed = (url: string) => {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
+  };
+
   // Voice Recognition Logic
   const toggleVoiceInput = (qId: string) => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -89,7 +95,7 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
       const userAns = answers[q.id];
 
       // --- Local Calculation (Fallback) ---
-      if (q.type === QuestionType.MCQ || q.type === QuestionType.IMAGE_MCQ || q.type === QuestionType.BOOLEAN) {
+      if (q.type === QuestionType.MCQ || q.type === QuestionType.IMAGE_MCQ || q.type === QuestionType.AUDIO || q.type === QuestionType.VIDEO || q.type === QuestionType.BOOLEAN) {
         if (userAns === q.correctAnswer) calculatedScore += q.points;
       } else if (q.type === QuestionType.SHORT_ANSWER) {
          if (typeof userAns === 'string' && typeof q.correctAnswer === 'string' && userAns.trim().toLowerCase() === q.correctAnswer.trim().toLowerCase()) {
@@ -135,6 +141,7 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
 
     const endTime = Date.now();
     const timeSpentSeconds = Math.floor((endTime - startTimeRef.current) / 1000);
+    const finalScore = Math.round(calculatedScore * 10) / 10;
 
     // Try Backend Submission First
     const backendResult = await ApiService.submitQuiz({
@@ -143,7 +150,9 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
         studentName,
         answers,
         timeSpent: timeSpentSeconds,
-        essayScores
+        essayScores,
+        score: finalScore,
+        maxScore
     });
 
     if (backendResult) {
@@ -157,7 +166,7 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
             studentId,
             studentName,
             answers,
-            score: Math.round(calculatedScore * 10) / 10,
+            score: finalScore,
             maxScore,
             submittedAt: new Date().toISOString(),
             startedAt: new Date(startTimeRef.current).toISOString(),
@@ -208,8 +217,32 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
                 <img src={q.imageUrl} alt="Question Reference" className="max-h-64 rounded shadow-md object-contain border" />
             </div>
         )}
+
+        {q.type === QuestionType.AUDIO && q.audioUrl && (
+            <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col items-center">
+                <div className="mb-2 text-gray-500 text-sm flex items-center gap-2 font-bold">
+                    <Music className="w-4 h-4"/> Document Audio
+                </div>
+                <audio controls src={q.audioUrl} className="w-full max-w-md" />
+            </div>
+        )}
+
+        {q.type === QuestionType.VIDEO && q.videoUrl && (
+            <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col items-center">
+                <div className="mb-2 text-gray-500 text-sm flex items-center gap-2 font-bold">
+                    <MonitorPlay className="w-4 h-4"/> Document Vidéo
+                </div>
+                <div className="w-full max-w-lg aspect-video bg-black rounded overflow-hidden">
+                    {getYoutubeEmbed(q.videoUrl) ? (
+                        <iframe className="w-full h-full" src={`https://www.youtube.com/embed/${getYoutubeEmbed(q.videoUrl)}`} frameBorder="0" allowFullScreen></iframe>
+                    ) : (
+                        <video controls src={q.videoUrl} className="w-full h-full"/>
+                    )}
+                </div>
+            </div>
+        )}
         
-        {(q.type === QuestionType.MCQ || q.type === QuestionType.IMAGE_MCQ) && (
+        {(q.type === QuestionType.MCQ || q.type === QuestionType.IMAGE_MCQ || q.type === QuestionType.AUDIO || q.type === QuestionType.VIDEO) && (
             <div className="space-y-3">
                 {q.options?.map(opt => (
                     <label key={opt} className="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer">

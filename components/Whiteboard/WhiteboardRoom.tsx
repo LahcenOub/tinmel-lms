@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, WhiteboardSession, Stroke, Point, WhiteboardMessage } from '../../types';
 import { StorageService } from '../../services/storageService';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { ArrowLeft, Eraser, Trash2, PenTool, AlertCircle, Send, MessageCircle, X, Users } from 'lucide-react';
+import { ArrowLeft, Eraser, Trash2, PenTool, AlertCircle, Send, MessageCircle, X, Users, Power } from 'lucide-react';
 
 interface Props {
     user: User;
@@ -241,7 +241,15 @@ const WhiteboardRoom: React.FC<Props> = ({ user, sessionId, accessKey, onExit })
         window.addEventListener('resize', handleResize);
         setTimeout(handleResize, 100); 
         return () => window.removeEventListener('resize', handleResize);
-    }, [showChat]); 
+    }, [showChat]);
+
+    const endSession = () => {
+        if (!session) return;
+        if (confirm("Voulez-vous vraiment terminer la session pour tout le monde ?")) {
+            StorageService.endWhiteboardSession(session.id);
+            onExit();
+        }
+    };
 
     if (error) {
         return (
@@ -311,7 +319,13 @@ const WhiteboardRoom: React.FC<Props> = ({ user, sessionId, accessKey, onExit })
                                 ))}
                             </div>
 
-                            <button onClick={clearBoard} className="p-1.5 md:p-2 text-red-500 hover:bg-red-50 rounded" title={t('clear')}><Trash2 className="w-5 h-5"/></button>
+                            <div className="w-px h-6 bg-gray-300 mx-1 hidden md:block"></div>
+
+                            <button onClick={clearBoard} className="p-1.5 md:p-2 text-orange-500 hover:bg-orange-50 rounded" title={t('clear')}><Trash2 className="w-5 h-5"/></button>
+                            
+                            <button onClick={endSession} className="p-1.5 md:p-2 text-white bg-red-500 hover:bg-red-600 rounded flex items-center gap-1 font-bold text-xs" title="Terminer le cours">
+                                <Power className="w-4 h-4"/> <span className="hidden lg:inline">Terminer</span>
+                            </button>
                         </div>
                     ) : (
                         <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded text-xs font-bold animate-pulse flex items-center gap-2">

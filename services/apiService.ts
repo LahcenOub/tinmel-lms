@@ -11,6 +11,14 @@ export interface PaginatedResponse<T> {
     };
 }
 
+export interface SystemChecks {
+    nodeVersion: string;
+    platform: string;
+    memory: string;
+    writeAccess: boolean;
+    dbConnection: boolean;
+}
+
 export const ApiService = {
     // Vérifier si l'application est installée (Admin existe)
     checkInstallStatus: async (): Promise<boolean> => {
@@ -26,6 +34,23 @@ export const ApiService = {
             return data.installed;
         } catch (e) {
             return StorageService.hasAdmin(); 
+        }
+    },
+
+    getSystemChecks: async (): Promise<SystemChecks> => {
+        try {
+            const res = await fetch('/api/setup/checks');
+            if (!res.ok) throw new Error("Check failed");
+            return await res.json();
+        } catch (e) {
+            // Mock if offline
+            return {
+                nodeVersion: 'Offline Mode',
+                platform: 'Browser',
+                memory: 'N/A',
+                writeAccess: true, // Optimistic for local storage
+                dbConnection: true
+            };
         }
     },
 
@@ -189,7 +214,7 @@ export const ApiService = {
         }
     },
 
-    submitQuiz: async (payload: { quizId: string, studentId: string, studentName: string, answers: any, timeSpent: number, essayScores: any }): Promise<QuizResult | null> => {
+    submitQuiz: async (payload: { quizId: string, studentId: string, studentName: string, answers: any, timeSpent: number, essayScores: any, score: number, maxScore: number }): Promise<QuizResult | null> => {
         try {
             const res = await fetch('/api/quiz/submit', {
                 method: 'POST',

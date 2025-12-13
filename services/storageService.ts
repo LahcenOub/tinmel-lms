@@ -1,3 +1,4 @@
+
 import { User, Quiz, QuizResult, UserRole, Message, Lesson, Announcement, SchoolStructure, PartnerRequest, WhiteboardSession, Stroke, WhiteboardMessage, IoTDevice, IoTDeviceType, SchoolEvent, LessonActivity } from '../types';
 
 const KEYS = {
@@ -603,6 +604,22 @@ export const StorageService = {
   // --- 8. WHITEBOARD ---
 
   getWhiteboards: (): WhiteboardSession[] => JSON.parse(localStorage.getItem(KEYS.WHITEBOARDS) || '[]'),
+  
+  // New method: Find active whiteboard by Host ID
+  getActiveWhiteboardForHost: (hostId: string): WhiteboardSession | undefined => {
+      const list = StorageService.getWhiteboards();
+      return list.find(w => w.hostId === hostId && w.isActive);
+  },
+
+  // New method: End session (mark as inactive)
+  endWhiteboardSession: (id: string) => {
+      const list = StorageService.getWhiteboards();
+      const idx = list.findIndex(w => w.id === id);
+      if (idx >= 0) {
+          list[idx].isActive = false;
+          localStorage.setItem(KEYS.WHITEBOARDS, JSON.stringify(list));
+      }
+  },
   
   saveWhiteboard: (wb: WhiteboardSession) => {
       const list = StorageService.getWhiteboards();
