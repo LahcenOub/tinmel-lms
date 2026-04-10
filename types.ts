@@ -207,8 +207,12 @@ export interface WhiteboardSession {
     hostName: string;
     title: string;
     accessKey: string;
-    isActive: boolean;
+    status: 'LIVE' | 'SCHEDULED' | 'ENDED'; // Updated status
+    scheduledAt?: string; // For planning
+    isActive: boolean; // Computed or legacy
     createdAt: string;
+    assignedClasses: string[]; // Classes invited
+    invitedStudentIds?: string[]; // Specific students invited (optional)
     strokes: Stroke[];
     messages: WhiteboardMessage[];
 }

@@ -29,3 +29,4 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ user, requiredRole, children }) =
 };
 
 export default AuthGuard;
+

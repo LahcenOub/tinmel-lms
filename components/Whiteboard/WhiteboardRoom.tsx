@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, WhiteboardSession, Stroke, Point, WhiteboardMessage } from '../../types';
 import { StorageService } from '../../services/storageService';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { ArrowLeft, Eraser, Trash2, PenTool, AlertCircle, Send, MessageCircle, X, Users, Power } from 'lucide-react';
+import { ArrowLeft, Eraser, Trash2, PenTool, AlertCircle, Send, MessageCircle, X, Users, Power, Mic, MicOff } from 'lucide-react';
 
 interface Props {
     user: User;
@@ -32,6 +32,9 @@ const WhiteboardRoom: React.FC<Props> = ({ user, sessionId, accessKey, onExit })
     // Chat State
     const [chatInput, setChatInput] = useState('');
     const [showChat, setShowChat] = useState(true); 
+    
+    // Audio State (Local Simulation)
+    const [isMicOn, setIsMicOn] = useState(false);
 
     // Identify if current user is Host
     const isHost = session ? user.id === session.hostId : false;
@@ -250,6 +253,17 @@ const WhiteboardRoom: React.FC<Props> = ({ user, sessionId, accessKey, onExit })
             onExit();
         }
     };
+    
+    const toggleMic = () => {
+        if (!isMicOn) {
+            // Check permissions locally
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(() => setIsMicOn(true))
+                .catch(() => alert("Impossible d'accéder au micro."));
+        } else {
+            setIsMicOn(false);
+        }
+    };
 
     if (error) {
         return (
@@ -287,6 +301,17 @@ const WhiteboardRoom: React.FC<Props> = ({ user, sessionId, accessKey, onExit })
                     
                     {isHost ? (
                         <div className="flex items-center gap-1 md:gap-2 bg-gray-100 p-1 rounded-lg">
+                            {/* Audio Control */}
+                            <button 
+                                onClick={toggleMic} 
+                                className={`p-1.5 md:p-2 rounded transition-colors ${isMicOn ? 'bg-red-100 text-red-600 animate-pulse' : 'text-gray-500 hover:bg-gray-200'}`} 
+                                title={isMicOn ? "Microphone Activé (Mode local)" : "Activer le micro"}
+                            >
+                                {isMicOn ? <Mic className="w-4 h-4"/> : <MicOff className="w-4 h-4"/>}
+                            </button>
+                            
+                            <div className="w-px h-6 bg-gray-300 mx-1 hidden md:block"></div>
+
                             {/* Tools */}
                             <button onClick={() => setTool('pen')} className={`p-1.5 md:p-2 rounded ${tool === 'pen' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`} title="Stylo"><PenTool className="w-4 h-4"/></button>
                             <button onClick={() => setTool('eraser')} className={`p-1.5 md:p-2 rounded ${tool === 'eraser' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`} title="Gomme"><Eraser className="w-4 h-4"/></button>
@@ -328,8 +353,10 @@ const WhiteboardRoom: React.FC<Props> = ({ user, sessionId, accessKey, onExit })
                             </button>
                         </div>
                     ) : (
-                        <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded text-xs font-bold animate-pulse flex items-center gap-2">
-                            <Users className="w-3 h-3"/> Mode Spectateur
+                        <div className="flex items-center gap-2">
+                             <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded text-xs font-bold animate-pulse flex items-center gap-2">
+                                <Users className="w-3 h-3"/> Mode Spectateur
+                            </div>
                         </div>
                     )}
 

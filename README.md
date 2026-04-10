@@ -5,9 +5,10 @@
 ![React](https://img.shields.io/badge/React-18-blue)
 ![Vite](https://img.shields.io/badge/Vite-5.0-purple)
 ![Gemini AI](https://img.shields.io/badge/AI-Google%20Gemini-orange)
+![PWA](https://img.shields.io/badge/PWA-Offline%20First-blueviolet)
 ![Status](https://img.shields.io/badge/Status-Beta-yellow)
 
-> **Tinmel** (تينمل) est une plateforme de gestion de l'apprentissage (LMS) nouvelle génération, conçue pour les écoles. Elle intègre l'Intelligence Artificielle pour automatiser la création de contenu pédagogique et la correction.
+> **Tinmel** (تينمل) est une plateforme de gestion de l'apprentissage (LMS) nouvelle génération, conçue pour les écoles. Elle intègre l'Intelligence Artificielle pour automatiser la création de contenu pédagogique et la correction, tout en étant optimisée pour les contextes à faible connectivité.
 
 🌐 **Site du Projet :** [Découvrir le projet](https://sites.google.com/view/tinmel-project/home)
 
@@ -17,6 +18,12 @@ Le nom **"Tinmel"** puise son inspiration dans le berceau historique de la dynas
 Ce projet est une réponse "Proof of Concept" (PoC) pour démontrer qu'un LMS puissant, intégrant l'IA générative, peut être construit avec des technologies web modernes et légères.
 
 ## ✨ Fonctionnalités Clés
+
+### 🌍 Offline-First & Low Data (Nouveau !)
+Tinmel est conçu pour l'équité numérique :
+*   **PWA (Progressive Web App) :** L'application est installable sur PC et Mobile. Elle se charge instantanément et fonctionne même sans connexion internet (après le premier chargement).
+*   **Mode Hors Ligne :** Les cours et l'interface restent accessibles sans réseau.
+*   **Mode Économie de Données :** Un module intelligent détecte les connexions lentes (2G/3G) et désactive automatiquement les animations lourdes et optimise les ressources pour économiser le forfait data des étudiants.
 
 ### 🧠 Intelligence Artificielle (Gemini 2.5)
 *   **Génération de Quiz Avancée :** Création automatique de tout genre de quiz à partir d'un simple sujet (QCM, Vrai/Faux, Questions ouvertes, Appariement, QCM Image).
@@ -36,6 +43,7 @@ Ce projet est une réponse "Proof of Concept" (PoC) pour démontrer qu'un LMS pu
 ## 🛠️ Stack Technique
 
 *   **Frontend :** React 18, TypeScript, Tailwind CSS, Lucide Icons.
+*   **PWA :** Vite PWA Plugin, Workbox (Service Workers).
 *   **Build Tool :** Vite.
 *   **Backend (Hybride) :** 
     *   *Mode Démo :* `LocalStorage` pour une persistance immédiate sans serveur.
@@ -44,8 +52,10 @@ Ce projet est une réponse "Proof of Concept" (PoC) pour démontrer qu'un LMS pu
 
 ## 🚀 Installation (Développeur)
 
+L'installation reste standard et utilise les commandes `npm` habituelles.
+
 ### Prérequis
-*   Node.js (v18+)
+*   **Node.js (v18 ou v20 LTS recommandé)**. ⚠️ *Évitez la version v24 (Current) sur Windows car elle nécessite des outils de compilation complexes.*
 *   Une clé API Google Gemini (Gratuite sur [Google AI Studio](https://aistudio.google.com/))
 
 ### Démarrage Rapide (Mode Développement)
@@ -70,17 +80,19 @@ npm run dev
 Ouvrez **http://localhost:3000**.
 *   **Admin par défaut :** `admin` / `password123`
 
-### Tester le Build de Production
-Pour simuler l'environnement de production (fichiers minifiés servis par Express) :
+### 🆘 Dépannage (Erreurs courantes)
 
-```bash
-# 1. Compiler le React (crée le dossier /dist)
-npm run build
+#### Erreur `gyp ERR! find Python` ou `node-gyp` lors de l'installation
+Cette erreur survient si vous utilisez une version très récente de Node.js (ex: v24) sur Windows.
+**Solution :**
+1.  Désinstallez Node.js.
+2.  Téléchargez et installez la version **LTS (v20.x)** depuis le site officiel nodejs.org.
+3.  Supprimez le dossier `node_modules` et le fichier `package-lock.json`.
+4.  Relancez `npm install`.
 
-# 2. Lancer le serveur Node uniquement
-npm start
-```
-L'application sera accessible sur **http://localhost:3001**.
+#### Erreur `EPERM: operation not permitted`
+Cela signifie qu'un fichier est ouvert ailleurs.
+**Solution :** Fermez VS Code ou tout terminal utilisant le dossier, puis réessayez.
 
 ## 🤝 Contribution & Hacktoberfest
 

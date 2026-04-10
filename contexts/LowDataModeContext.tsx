@@ -1,0 +1,66 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+
+interface LowDataModeContextType {
+  isLowDataMode: boolean;
+  toggleLowDataMode: () => void;
+  connectionType: string | null;
+}
+
+const LowDataModeContext = createContext<LowDataModeContextType | undefined>(undefined);
+
+export const LowDataModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isLowDataMode, setIsLowDataMode] = useState(false);
+  const [connectionType, setConnectionType] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check for saved preference
+    const savedMode = localStorage.getItem('tinmel_low_data_mode');
+    if (savedMode !== null) {
+      setIsLowDataMode(savedMode === 'true');
+    } else {
+      // Auto-detect slow connection
+      // @ts-ignore - navigator.connection is experimental but widely supported in Chromium
+      const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      
+      if (connection) {
+        setConnectionType(connection.effectiveType);
+        
+        // If 2g or slow-2g, enable low data mode by default
+        if (connection.saveData || connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') {
+          setIsLowDataMode(true);
+        }
+
+        // Listen for changes
+        const updateConnectionStatus = () => {
+          setConnectionType(connection.effectiveType);
+          if (connection.saveData && !localStorage.getItem('tinmel_low_data_mode')) {
+             setIsLowDataMode(true);
+          }
+        };
+        
+        connection.addEventListener('change', updateConnectionStatus);
+        return () => connection.removeEventListener('change', updateConnectionStatus);
+      }
+    }
+  }, []);
+
+  const toggleLowDataMode = () => {
+    const newMode = !isLowDataMode;
+    setIsLowDataMode(newMode);
+    localStorage.setItem('tinmel_low_data_mode', String(newMode));
+  };
+
+  return (
+    <LowDataModeContext.Provider value={{ isLowDataMode, toggleLowDataMode, connectionType }}>
+      {children}
+    </LowDataModeContext.Provider>
+  );
+};
+
+export const useLowDataMode = () => {
+  const context = useContext(LowDataModeContext);
+  if (context === undefined) {
+    throw new Error('useLowDataMode must be used within a LowDataModeProvider');
+  }
+  return context;
+};

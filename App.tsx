@@ -10,11 +10,28 @@ import StudentDashboard from './components/Dashboards/StudentDashboard';
 import ModeratorDashboard from './components/Dashboards/ModeratorDashboard';
 import CoordinatorDashboard from './components/Dashboards/CoordinatorDashboard';
 import AuthGuard from './components/Auth/AuthGuard';
+import NetworkStatus from './components/NetworkStatus';
+import { LowDataModeProvider, useLowDataMode } from './contexts/LowDataModeContext';
+import LowDataToggle from './components/LowDataToggle';
 import { GraduationCap, ArrowLeft, Languages, Building2, AlertTriangle, Loader2, CheckCircle, Lock, Database, ShieldCheck, Github, ExternalLink, Trash2, Server, Star, Brain, PenTool, Check, HardDrive, Cpu, Settings, Play } from 'lucide-react';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
 // Background Component
 const CalligraphyBackground = () => {
+    const { isLowDataMode } = useLowDataMode();
+    
+    // In Low Data Mode, render a static, simplified background
+    if (isLowDataMode) {
+        return (
+            <div className="absolute inset-0 bg-[#0f172a] overflow-hidden pointer-events-none select-none">
+                <div className="absolute inset-0 bg-gradient-to-b from-blue-900/20 via-[#0f172a]/60 to-[#0f172a] z-0"></div>
+                {/* Static, non-animated elements for texture */}
+                <div className="absolute top-10 left-10 text-white/5 text-9xl font-serif blur-sm">تينمل</div>
+                <div className="absolute bottom-20 right-20 text-white/5 text-8xl font-serif blur-sm">Tinmel</div>
+            </div>
+        );
+    }
+
     const elements = useMemo(() => {
         const items = [];
         const chars = [
@@ -331,10 +348,13 @@ const LandingPage: React.FC = () => {
         <div className="min-h-screen bg-blue-900 flex items-center justify-center relative overflow-hidden" dir={dir}>
             <CalligraphyBackground />
             
-            <button onClick={toggleLanguage} className="absolute top-6 right-6 z-50 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full backdrop-blur-md flex items-center gap-2 transition border border-white/20">
-                <Languages className="w-5 h-5"/>
-                <span className="font-bold uppercase">{language}</span>
-            </button>
+            <div className="absolute top-6 right-6 z-50 flex items-center gap-3">
+                <LowDataToggle />
+                <button onClick={toggleLanguage} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full backdrop-blur-md flex items-center gap-2 transition border border-white/20">
+                    <Languages className="w-5 h-5"/>
+                    <span className="font-bold uppercase">{language}</span>
+                </button>
+            </div>
 
             <div className="z-10 w-full max-w-4xl px-4 animate-fade-in flex flex-col items-center justify-between min-h-[80vh]">
                  <div className="text-center relative mt-10">
@@ -664,9 +684,12 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <LanguageProvider>
+      <LowDataModeProvider>
+        <NetworkStatus />
         <BrowserRouter>
             <AppContent />
         </BrowserRouter>
+      </LowDataModeProvider>
     </LanguageProvider>
   );
 };
