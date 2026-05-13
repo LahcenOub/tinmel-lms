@@ -13,45 +13,56 @@ export const LowDataModeProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [connectionType, setConnectionType] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check for saved preference
-    const savedMode = localStorage.getItem('tinmel_low_data_mode');
-    if (savedMode !== null) {
-      setIsLowDataMode(savedMode === 'true');
-    } else {
-      // Auto-detect slow connection
-      // @ts-ignore - navigator.connection is experimental but widely supported in Chromium
-      const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-      
-      if (connection) {
-        setConnectionType(connection.effectiveType);
-        
-        // If 2g or slow-2g, enable low data mode by default
-        if (connection.saveData || connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') {
-          setIsLowDataMode(true);
-        }
+    try {
+      // Check for saved preference
+      const savedMode = localStorage.getItem('tinmel_low_data_mode');
+      if (savedMode !== null) {
+        setIsLowDataMode(savedMode === 'true');
+        return;
+      }
+    } catch (e) {
+      console.warn("localStorage not available", e);
+    }
 
-        // Listen for changes
-        const updateConnectionStatus = () => {
-          setConnectionType(connection.effectiveType);
+    // Auto-detect slow connection
+    // @ts-ignore - navigator.connection is experimental but widely supported in Chromium
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    
+    if (connection) {
+      setConnectionType(connection.effectiveType);
+      
+      // If 2g or slow-2g, enable low data mode by default
+      if (connection.saveData || connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') {
+        setIsLowDataMode(true);
+      }
+
+      // Listen for changes
+      const updateConnectionStatus = () => {
+        setConnectionType(connection.effectiveType);
+        try {
           if (connection.saveData && !localStorage.getItem('tinmel_low_data_mode')) {
              setIsLowDataMode(true);
           }
-        };
-        
-        connection.addEventListener('change', updateConnectionStatus);
-        return () => connection.removeEventListener('change', updateConnectionStatus);
-      }
+        } catch (e) {}
+      };
+      
+      connection.addEventListener('change', updateConnectionStatus);
+      return () => connection.removeEventListener('change', updateConnectionStatus);
     }
   }, []);
 
   const toggleLowDataMode = () => {
     const newMode = !isLowDataMode;
     setIsLowDataMode(newMode);
-    localStorage.setItem('tinmel_low_data_mode', String(newMode));
+    try {
+      localStorage.setItem('tinmel_low_data_mode', String(newMode));
+    } catch (e) {}
   };
 
+  const value = React.useMemo(() => ({ isLowDataMode, toggleLowDataMode, connectionType }), [isLowDataMode, connectionType]);
+
   return (
-    <LowDataModeContext.Provider value={{ isLowDataMode, toggleLowDataMode, connectionType }}>
+    <LowDataModeContext.Provider value={value}>
       {children}
     </LowDataModeContext.Provider>
   );

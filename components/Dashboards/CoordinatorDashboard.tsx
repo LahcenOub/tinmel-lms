@@ -10,66 +10,10 @@ import {
     MapPin, Thermometer, Wind, AlertTriangle, FileSpreadsheet, ChevronRight, X, UserPlus, Eye, EyeOff, Settings, BookOpen, MessageCircle, Send, FileText
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { MessagesView } from '../Messages/MessagesView';
+import { useUnreadCount } from '../../hooks/useUnreadCount';
 
-// --- HEADER BACKGROUND COMPONENT ---
-const HeaderBackground = () => {
-    const elements = useMemo(() => {
-        const items = [];
-        const chars = [
-            'ا', 'ب', 'ح', 'د', 'ر', 'س', 'ص', 'ط', 'ع', 'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'و', 'ي',
-            'أ', 'إ', 'آ', 'ة', 'ث', 'ج', 'خ', 'ذ', 'ز', 'ش', 'ض', 'ظ', 'غ', 'ف',
-            'ⴰ', 'ⴱ', 'ⴳ', 'ⴷ', 'ⴹ', 'ⴻ', 'ⴼ', 'ⴽ', 'ⵀ', 'ⵃ', 'ⵄ', 'ⵅ', 'ⵇ', 'ⵉ', 'ⵊ', 'ⵍ', 'ⵎ', 'ⵏ', 'ⵓ', 'ⵔ', 'ⵕ', 'ⵖ', 'ⵙ', 'ⵚ', 'ⵛ', 'ⵜ', 'ⵟ', 'ⵡ', 'ⵢ', 'ⵣ', 'ⵥ',
-            'Tinmel', 'Education', 'Savoir', 'المعرفة', 'A', 'B', 'C', '1', '2', '3', '∑', '∫', 'π'
-        ];
-
-        for (let i = 0; i < 35; i++) {
-            items.push({
-                char: chars[Math.floor(Math.random() * chars.length)],
-                top: Math.random() * 100,
-                left: Math.random() * 100,
-                size: Math.random() * 2 + 1, // 1rem to 3rem
-                duration: Math.random() * 30 + 20,
-                delay: Math.random() * 20,
-                initialRotate: Math.random() * 360,
-                opacity: Math.random() * 0.15 + 0.05, // 5% to 20% opacity
-                font: Math.random() > 0.5 ? 'Amiri' : 'sans-serif' 
-            });
-        }
-        return items;
-    }, []);
-
-    return (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-            <style>{`
-                @keyframes swimHeader {
-                    0% { transform: translate(0, 0) rotate(0deg); }
-                    33% { transform: translate(25px, -15px) rotate(4deg); }
-                    66% { transform: translate(-15px, 15px) rotate(-4deg); }
-                    100% { transform: translate(0, 0) rotate(0deg); }
-                }
-            `}</style>
-            {elements.map((el, i) => (
-                <div key={i} style={{
-                    position: 'absolute',
-                    top: `${el.top}%`,
-                    left: `${el.left}%`,
-                    fontSize: `${el.size}rem`,
-                    fontFamily: el.font === 'Amiri' ? '"Amiri", serif' : 'sans-serif',
-                    color: `rgba(79, 70, 229, ${el.opacity})`, // Indigo-600 for Coordinator
-                    zIndex: 0,
-                    lineHeight: 1,
-                    whiteSpace: 'nowrap',
-                    filter: 'blur(0.5px)',
-                    animation: `swimHeader ${el.duration}s ease-in-out infinite -${el.delay}s`
-                }}>
-                    <div style={{ transform: `rotate(${el.initialRotate}deg)` }}>
-                        {el.char}
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-};
+import { HeaderBackground } from '../HeaderBackground';
 
 // --- SUB-VIEWS ---
 
@@ -778,135 +722,12 @@ const IoTView: React.FC<{ user: User }> = ({ user }) => {
     );
 };
 
-const MessagesView: React.FC<{ user: User }> = ({ user }) => {
-    const { t } = useLanguage();
-    const [contacts, setContacts] = useState<User[]>([]);
-    const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [newMessage, setNewMessage] = useState('');
-
-    useEffect(() => {
-        const loadData = async () => {
-            const allUsers = await ApiService.getUsers();
-            // Coordinators see all Professors and Students in their school
-            const relevantUsers = allUsers.filter(u => 
-                (u.role === UserRole.PROFESSOR || u.role === UserRole.STUDENT) && 
-                u.school === user.school && 
-                u.city === user.city
-            );
-            setContacts(relevantUsers);
-        };
-        loadData();
-    }, [user]);
-
-    useEffect(() => {
-        if (selectedContactId) {
-            // Initial load
-            setMessages(StorageService.getMessages(user.id, selectedContactId));
-            
-            // Poll for messages
-            const interval = setInterval(() => {
-                const msgs = StorageService.getMessages(user.id, selectedContactId);
-                setMessages(msgs);
-            }, 3000);
-            return () => clearInterval(interval);
-        }
-    }, [selectedContactId, user.id]);
-
-    const handleSend = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newMessage.trim() || !selectedContactId) return;
-        
-        const msg: Message = { 
-            id: `msg-${Date.now()}`, 
-            senderId: user.id, 
-            senderName: user.name, 
-            receiverId: selectedContactId, 
-            content: newMessage, 
-            timestamp: new Date().toISOString(), 
-            read: false 
-        };
-        
-        StorageService.sendMessage(msg);
-        setMessages(prev => [...prev, msg]);
-        setNewMessage('');
-    };
-
-    return (
-        <div className="bg-white rounded-lg shadow h-[600px] flex overflow-hidden border animate-fade-in">
-             <div className="w-1/3 border-e bg-gray-50 flex flex-col">
-                <div className="p-4 border-b font-bold text-gray-700 bg-gray-100">{t('contact')}</div>
-                <div className="flex-1 overflow-y-auto">
-                     {contacts.length === 0 && <p className="p-4 text-sm text-gray-500 text-center">{t('noMessages')}</p>}
-                     {contacts.map(contact => (
-                        <button 
-                            key={contact.id} 
-                            onClick={() => setSelectedContactId(contact.id)} 
-                            className={`w-full p-4 text-start hover:bg-indigo-50 transition border-b flex justify-between items-center group ${selectedContactId === contact.id ? 'bg-indigo-100 border-l-4 border-l-indigo-600' : 'border-l-4 border-l-transparent'}`}
-                        >
-                            <div>
-                                <div className="font-bold text-gray-800 text-sm group-hover:text-indigo-700">{contact.name}</div>
-                                <div className="text-xs text-gray-500 flex items-center gap-1">
-                                    {contact.role === UserRole.PROFESSOR ? <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold text-[10px]">PROF</span> : <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold text-[10px]">ÉTUDIANT</span>}
-                                    {contact.subject && <span className="text-gray-400">• {contact.subject}</span>}
-                                </div>
-                            </div>
-                            <ChevronRight className={`w-4 h-4 text-gray-300 ${selectedContactId === contact.id ? 'text-indigo-500' : ''}`}/>
-                        </button>
-                     ))}
-                </div>
-             </div>
-             <div className="w-2/3 flex flex-col bg-white">
-                  {selectedContactId ? (
-                       <>
-                            <div className="p-4 border-b font-bold bg-white flex items-center gap-3 shadow-sm z-10">
-                                <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-                                <div>
-                                    <div className="text-gray-800">{contacts.find(u => u.id === selectedContactId)?.name}</div>
-                                    <div className="text-xs text-gray-400 font-normal">{t('online')}</div>
-                                </div>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50">
-                                {messages.map(m => (
-                                    <div key={m.id} className={`flex ${m.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[70%] p-3 rounded-2xl text-sm shadow-sm ${m.senderId === user.id ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white border text-gray-800 rounded-bl-none'}`}>
-                                            {m.content}
-                                            <div className={`text-[10px] mt-1 text-end ${m.senderId === user.id ? 'text-indigo-200' : 'text-gray-400'}`}>
-                                                {new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {messages.length === 0 && <div className="text-center text-gray-400 text-sm mt-10">Démarrez une conversation.</div>}
-                            </div>
-                            <form onSubmit={handleSend} className="p-4 border-t bg-white flex gap-2">
-                                <input 
-                                    className="flex-1 border rounded-full px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-gray-50" 
-                                    placeholder={t('typeMessage')} 
-                                    value={newMessage} 
-                                    onChange={(e) => setNewMessage(e.target.value)} 
-                                />
-                                <button type="submit" className="bg-indigo-600 text-white p-3 rounded-full hover:bg-indigo-700 shadow-md transition transform active:scale-95">
-                                    <Send className="w-5 h-5 rtl:flip" />
-                                </button>
-                            </form>
-                       </>
-                   ) : (
-                       <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/30">
-                           <MessageCircle className="w-16 h-16 text-gray-200 mb-4"/>
-                           <p>Sélectionnez un contact pour discuter.</p>
-                       </div>
-                   )}
-             </div>
-         </div>
-    );
-};
-
 // --- MAIN COMPONENT ---
 
 const CoordinatorDashboard: React.FC<{ user: User, onLogout: () => void }> = ({ user, onLogout }) => {
     const { t, dir } = useLanguage();
     const location = useLocation();
+    const totalUnread = useUnreadCount(user.id);
 
     const isActive = (path: string) => location.pathname.includes(`/coordinator/${path}`);
 
@@ -930,15 +751,18 @@ const CoordinatorDashboard: React.FC<{ user: User, onLogout: () => void }> = ({ 
                         { id: 'structure', icon: Building, label: t('manageStructure') },
                         { id: 'staff', icon: Users, label: t('manageStaff') },
                         { id: 'students', icon: GraduationCap, label: t('manageStudents') },
-                        { id: 'messages', icon: MessageCircle, label: t('messages') }, 
+                        { id: 'messages', icon: MessageCircle, label: t('messages'), badge: totalUnread > 0 ? totalUnread : null }, 
                         { id: 'iot', icon: Wifi, label: t('smartSchool') },
                     ].map(item => (
                         <Link 
                             key={item.id}
                             to={`/coordinator/${item.id}`}
-                            className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${isActive(item.id) ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'}`}
+                            className={`flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors ${isActive(item.id) ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'}`}
                         >
-                            <item.icon className="w-5 h-5"/> {item.label}
+                            <div className="flex items-center gap-3">
+                                <item.icon className="w-5 h-5"/> {item.label}
+                            </div>
+                            {item.badge && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">{item.badge}</span>}
                         </Link>
                     ))}
                 </nav>

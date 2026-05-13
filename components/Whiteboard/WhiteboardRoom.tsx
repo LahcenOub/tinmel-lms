@@ -241,9 +241,9 @@ const WhiteboardRoom: React.FC<Props> = ({ user, sessionId, accessKey, onExit })
     };
 
     useEffect(() => {
-        window.addEventListener('resize', handleResize);
+        globalThis.addEventListener('resize', handleResize);
         setTimeout(handleResize, 100); 
-        return () => window.removeEventListener('resize', handleResize);
+        return () => globalThis.removeEventListener('resize', handleResize);
     }, [showChat]);
 
     const endSession = () => {
@@ -278,7 +278,7 @@ const WhiteboardRoom: React.FC<Props> = ({ user, sessionId, accessKey, onExit })
     if (!session) return <div className="flex items-center justify-center h-full">{t('loading')}</div>;
 
     return (
-        <div className="flex h-[calc(100vh-80px)] bg-gray-100 rounded-xl overflow-hidden shadow-2xl animate-fade-in border border-gray-200" dir="ltr">
+        <div className="flex h-[calc(100vh-80px)] bg-gray-100 rounded-xl overflow-hidden shadow-2xl animate-fade-in border border-gray-200" dir={dir}>
             
             {/* Main Content (Toolbar + Canvas) */}
             <div className="flex-1 flex flex-col relative h-full">

@@ -27,7 +27,14 @@ export const StorageService = {
   },
   setItem: (key: string, val: any) => {
     try {
-      localStorage.setItem(key, JSON.stringify(val));
+      // Basic sanitization for stored data
+      const stringified = JSON.stringify(val, (key, value) => {
+        if (typeof value === 'string') {
+          return value.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        return value;
+      });
+      localStorage.setItem(key, stringified);
     } catch (e) {
       console.error("Storage Error", e);
     }
@@ -107,6 +114,20 @@ export const StorageService = {
       StorageService.setItem(KEYS.LESSONS, list);
   },
 
+  // Events
+  getEvents: (): SchoolEvent[] => StorageService.getItem<SchoolEvent[]>(KEYS.EVENTS, []),
+  saveEvent: (e: SchoolEvent) => {
+      const list = StorageService.getEvents();
+      const idx = list.findIndex(x => x.id === e.id);
+      if (idx >= 0) list[idx] = e;
+      else list.push(e);
+      StorageService.setItem(KEYS.EVENTS, list);
+  },
+  deleteEvent: (id: string) => {
+      const list = StorageService.getEvents().filter(e => e.id !== id);
+      StorageService.setItem(KEYS.EVENTS, list);
+  },
+
   // Announcements
   getAnnouncements: (): Announcement[] => StorageService.getItem<Announcement[]>(KEYS.ANNOUNCEMENTS, []),
   saveAnnouncement: (a: Announcement) => {
@@ -179,6 +200,11 @@ export const StorageService = {
       return all.filter(m => (m.senderId === userId1 && m.receiverId === userId2) || (m.senderId === userId2 && m.receiverId === userId1))
                 .sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   },
+  getGroupMessages: (groupId: string): Message[] => {
+      const all = StorageService.getItem<Message[]>(KEYS.MESSAGES, []);
+      return all.filter(m => m.receiverId === groupId)
+                .sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  },
   sendMessage: (msg: Message) => {
       const list = StorageService.getItem<Message[]>(KEYS.MESSAGES, []);
       list.push(msg);
@@ -192,6 +218,28 @@ export const StorageService = {
           if (m.receiverId === userId) contactIds.add(m.senderId);
       });
       return Array.from(contactIds);
+  },
+  markMessagesAsRead: (userId: string, senderId: string) => {
+      const list = StorageService.getItem<Message[]>(KEYS.MESSAGES, []);
+      let changed = false;
+      const newList = list.map(m => {
+          if (m.receiverId === userId && m.senderId === senderId && !m.read) {
+              changed = true;
+              return { ...m, read: true };
+          }
+          return m;
+      });
+      if (changed) {
+          StorageService.setItem(KEYS.MESSAGES, newList);
+      }
+  },
+  getUnreadCount: (userId: string): number => {
+      const list = StorageService.getItem<Message[]>(KEYS.MESSAGES, []);
+      return list.filter(m => m.receiverId === userId && !m.read).length;
+  },
+  getUnreadCountFromSender: (userId: string, senderId: string): number => {
+      const list = StorageService.getItem<Message[]>(KEYS.MESSAGES, []);
+      return list.filter(m => m.receiverId === userId && m.senderId === senderId && !m.read).length;
   },
 
   // School Structure

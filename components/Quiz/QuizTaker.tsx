@@ -285,13 +285,13 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
             <div className="leading-loose text-lg font-medium">
                 {(() => {
                     let blankIndex = 0;
-                    return q.text.split(/(\[.*?\])/).map((part, idx) => {
+                    return q.text.split(/(\[.*?\])/).map((part, pIdx) => {
                         if (part.startsWith('[') && part.endsWith(']')) {
                             const currentBlankIndex = blankIndex++;
                             const val = (answers[q.id] as string[])?.[currentBlankIndex] || '';
                             return (
                                 <input
-                                    key={idx}
+                                    key={`${q.id}-blank-${pIdx}`}
                                     className="border-b-2 border-blue-500 mx-1 px-1 text-center w-32 focus:outline-none bg-blue-50 text-blue-800"
                                     value={val}
                                     onChange={(e) => {
@@ -304,7 +304,7 @@ const QuizTaker: React.FC<QuizTakerProps> = ({ quiz, studentId, studentName, onC
                                 />
                             );
                         }
-                        return <span key={idx}>{part}</span>;
+                        return <span key={`${q.id}-text-${pIdx}`}>{part}</span>;
                     });
                 })()}
             </div>

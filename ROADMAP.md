@@ -10,6 +10,7 @@ L'architecture de base est solide (Abstraction DB, Sécurité, Environnements), 
 
 ## ✨ Fonctionnalités Récemment Ajoutées (Q1 2025)
 
+- [x] **Intégration LoRaWAN (Off-grid)** : Architecture backend (MQTT, Webhooks), configuration des scénarios (Interne/Externe), et payload configurator scriptable en JS pour l'ingestion des réponses de quiz via réseaux radio.
 - [x] **Modules Interactifs** : Quiz de validation intégrés à la fin des leçons (timers, score minimum).
 - [x] **Planification** : Programmation de la disponibilité des cours (Date de début / fin).
 - [x] **Monitoring** : Compteur d'élèves en direct sur les cours (Heartbeat system).

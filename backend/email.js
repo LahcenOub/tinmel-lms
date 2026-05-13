@@ -8,9 +8,7 @@ class EmailService {
 
     async send(to, subject, body) {
         console.log(`\n📧 [EMAIL MOCK SERVICE] -------------------------`);
-        console.log(`To: ${to}`);
-        console.log(`Subject: ${subject}`);
-        console.log(`Body: ${body.substring(0, 50)}...`);
+        console.log(`Sending mock email...`);
         console.log(`--------------------------------------------------\n`);
 
         try {

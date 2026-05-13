@@ -100,9 +100,14 @@ export const ApiService = {
             if (res.ok) {
                 return await res.json();
             }
+            if (res.status === 401 || res.status === 403) {
+                // Explicitly unauthorized, clear local session just in case
+                StorageService.clearSession();
+            }
             return null;
         } catch (e) {
-            return null;
+            // Network error (offline)
+            throw new Error("Network error");
         }
     },
 
@@ -112,6 +117,24 @@ export const ApiService = {
             await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
         } catch (e) {
             console.error("Erreur Logout API", e);
+        }
+    },
+
+    saveLorawanConfigs: async (configs: any[]) => {
+        try {
+            const res = await fetch('/api/settings/lorawan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ configs }),
+            });
+            if (!res.ok) {
+                const error = await res.json();
+                throw new Error(error.error || "Failed to save configs");
+            }
+            return await res.json();
+        } catch (e) {
+            console.error("Erreur API LoRaWAN:", e);
+            throw e;
         }
     },
 
@@ -250,7 +273,7 @@ export const ApiService = {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = () => resolve(reader.result as string);
-                reader.onerror = (error) => reject(error);
+                reader.onerror = () => reject(new Error("File reading failed"));
             });
         }
     }

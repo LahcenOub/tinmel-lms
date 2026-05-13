@@ -36,11 +36,24 @@ export interface User {
   lastLogin?: string; // ISO Date string
 }
 
+export interface LoRaWANConfig {
+    scenario: 'EXTERNAL_NS' | 'INTERNAL_NS';
+    // For EXTERNAL_NS (e.g. TTN, ChirpStack)
+    mqttUrl?: string;     
+    mqttUsername?: string;
+    mqttPassword?: string;
+    // For INTERNAL_NS (Tinmel manages gateway via its own NS)
+    gatewayEui?: string;    
+    // Payload Configurator
+    decoderScript?: string;
+}
+
 export interface SchoolStructure {
     id: string;
     school: string;
     city: string;
     classes: string[]; // List of official class names
+    lorawanConfig?: LoRaWANConfig; // Option for LoRaWAN gateway configuration
 }
 
 export enum QuestionType {
@@ -148,6 +161,8 @@ export interface Lesson {
     availableFrom?: string; // ISO Date
     availableUntil?: string; // ISO Date
     completedBy?: string[]; // List of Student IDs who completed this lesson
+    invitedStudentIds?: string[]; // Specific students invited (optional)
+    hiddenWords?: string[]; // Words hidden in the PDF for the treasure hunt
 }
 
 export interface SchoolEvent {
@@ -157,6 +172,7 @@ export interface SchoolEvent {
     title: string;
     date: string; // ISO String
     type: 'EXAM' | 'TEST' | 'HOMEWORK' | 'OTHER';
+    examMode?: 'ONLINE' | 'PHYSICAL'; // Added for exam location
     assignedClasses: string[];
     description?: string;
     createdAt: string;

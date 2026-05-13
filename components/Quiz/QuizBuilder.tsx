@@ -387,7 +387,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
             {(q.type === QuestionType.MCQ || q.type === QuestionType.IMAGE_MCQ || q.type === QuestionType.AUDIO || q.type === QuestionType.VIDEO) && (
                 <div className="space-y-2 ms-11">
                     {q.options?.map((opt, oIdx) => (
-                        <div key={oIdx} className="flex items-center gap-3 group/option">
+                        <div key={`${q.id}-opt-${oIdx}`} className="flex items-center gap-3 group/option">
                             <input 
                                 type="radio" 
                                 name={`correct-${q.id}`} 
@@ -489,7 +489,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({ profId, onSave, onCancel, ava
             {q.type === QuestionType.MATCHING && (
                 <div className="ms-11 mt-2 space-y-3">
                     {q.matchingPairs?.map((pair, pIdx) => (
-                        <div key={pIdx} className="flex gap-3 items-center group/pair">
+                        <div key={`${q.id}-pair-${pIdx}`} className="flex gap-3 items-center group/pair">
                             <div className="flex-1 flex items-center gap-2">
                                 <span className="text-gray-400 font-mono text-xs">A</span>
                                 <input 

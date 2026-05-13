@@ -5,6 +5,8 @@ import { User, UserRole, Announcement, Message } from '../../types';
 import { StorageService } from '../../services/storageService';
 import { LogOut, Trash, UserPlus, Megaphone, Send, Info, X, MessageCircle, Shield, Search, Filter, ChevronLeft, ChevronRight, FileDown } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useUnreadCount } from '../../hooks/useUnreadCount';
+import { HeaderBackground } from '../HeaderBackground';
 import * as XLSX from 'xlsx';
 
 interface Props {
@@ -286,14 +288,16 @@ const CommunicationView: React.FC<{ user: User }> = ({ user }) => {
 const ModeratorDashboard: React.FC<Props> = ({ user, onLogout }) => {
   const { t, dir } = useLanguage();
   const location = useLocation();
+  const totalUnread = useUnreadCount(user.id);
 
   const isActive = (path: string) => location.pathname.includes(`/moderator/${path}`);
 
   return (
     <div className="min-h-screen bg-gray-100 p-8" dir={dir}>
        <div className="max-w-6xl mx-auto">
-           <header className="flex justify-between items-center mb-8">
-               <div className="flex items-center gap-4">
+           <header className="flex justify-between items-center mb-8 bg-white p-6 rounded-xl shadow-sm border relative overflow-hidden">
+               <HeaderBackground color="30, 64, 175" />
+               <div className="flex items-center gap-4 relative z-10">
                   <span className="text-3xl font-black text-blue-700 font-logo tracking-tight">{t('appName')}</span>
                   <div className="h-6 w-px bg-gray-300"></div>
                   <div>
@@ -301,7 +305,7 @@ const ModeratorDashboard: React.FC<Props> = ({ user, onLogout }) => {
                       <p className="text-sm text-gray-500">{user.name} (Assistant(e))</p>
                   </div>
                </div>
-               <button onClick={onLogout} className="flex items-center gap-2 text-red-600 hover:text-red-800">
+               <button onClick={onLogout} className="flex items-center gap-2 bg-white/80 backdrop-blur shadow-sm text-red-600 hover:bg-red-50 px-4 py-2 rounded-full transition-colors font-medium text-sm z-10 relative">
                    <LogOut className="w-5 h-5 rtl:flip" /> {t('logout')}
                </button>
            </header>
@@ -317,7 +321,7 @@ const ModeratorDashboard: React.FC<Props> = ({ user, onLogout }) => {
                   to="/moderator/communication"
                   className={`pb-2 px-4 flex items-center gap-2 border-b-2 transition-colors ${isActive('communication') ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                >
-                   <Shield className="w-4 h-4"/> {t('supportComm')}
+                   <Shield className="w-4 h-4"/> {t('supportComm')} {totalUnread > 0 && <span className="ml-1 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">{totalUnread}</span>}
                </Link>
            </div>
 

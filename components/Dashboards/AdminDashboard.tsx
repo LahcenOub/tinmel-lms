@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
-import { User, UserRole, Announcement, PartnerRequest } from '../../types';
+import { User, UserRole, Announcement, PartnerRequest, SchoolStructure, LoRaWANConfig } from '../../types';
 import { StorageService } from '../../services/storageService';
-import { ApiService, PaginatedResponse } from '../../services/apiService';
-import { LogOut, UserPlus, Users, Search, ChevronLeft, ChevronRight, Filter, Building, BarChart, Shield, Megaphone, Send, Eye, EyeOff, MapPin, X, GraduationCap, FileText, BookOpen, Trash2, RefreshCcw, FileDown, AlertTriangle, Printer, Check, Inbox, CreditCard, Settings, Lock, Database, Info, Loader2, Plus } from 'lucide-react';
+import { ApiService } from '../../services/apiService';
+import { LogOut, UserPlus, Users, Search, ChevronLeft, ChevronRight, Building, BarChart, Shield, Megaphone, Send, Eye, EyeOff, MapPin, X, GraduationCap, FileText, BookOpen, Trash2, RefreshCcw, FileDown, Printer, Check, Inbox, CreditCard, Settings, Lock, Database, Info, Loader2, Plus, Wifi, Save } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { HeaderBackground } from '../HeaderBackground';
 import * as XLSX from 'xlsx';
 
 interface Props {
@@ -112,8 +113,8 @@ const StatsView: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {schoolStatsArray.map((s, idx) => (
-                            <tr key={idx} className="border-b last:border-0 hover:bg-gray-50">
+                        {schoolStatsArray.map((s) => (
+                            <tr key={s.name + s.city} className="border-b last:border-0 hover:bg-gray-50">
                                 <td className="p-4 font-bold text-gray-800">{s.name}</td>
                                 <td className="p-4 text-gray-600">{s.city}</td>
                                 <td className="p-4 text-center">
@@ -180,6 +181,14 @@ const GlobalSearchView: React.FC = () => {
         alert(`${t('passResetSuccess')} ${newPass}`);
     };
 
+    // Extract nested ternary operations
+    const getRoleBadgeClass = (role: string) => {
+        if (role === UserRole.ADMIN) return 'bg-red-100 text-red-700';
+        if (role === UserRole.STUDENT) return 'bg-green-100 text-green-700';
+        if (role === UserRole.COORDINATOR) return 'bg-purple-100 text-purple-700';
+        return 'bg-blue-100 text-blue-700';
+    };
+
     const totalPages = Math.ceil(totalUsers / ITEMS_PER_PAGE);
 
     return (
@@ -217,12 +226,7 @@ const GlobalSearchView: React.FC = () => {
                             <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50">
                                 <td className="p-3 font-medium">{u.name}</td>
                                 <td className="p-3">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                        u.role === UserRole.ADMIN ? 'bg-red-100 text-red-700' :
-                                        u.role === UserRole.STUDENT ? 'bg-green-100 text-green-700' :
-                                        u.role === UserRole.COORDINATOR ? 'bg-purple-100 text-purple-700' :
-                                        'bg-blue-100 text-blue-700'
-                                    }`}>{t(u.role.toLowerCase())}</span>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${getRoleBadgeClass(u.role)}`}>{t(u.role.toLowerCase())}</span>
                                 </td>
                                 <td className="p-3 text-gray-600">{u.school || '-'}</td>
                                 <td className="p-3 font-mono text-xs">{u.username}</td>
@@ -382,7 +386,7 @@ const IndividualsView: React.FC = () => {
                     <tbody>
                         {paginated.map(u => (
                             <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50">
-                                <td className="p-3 font-medium text-blue-700 cursor-pointer hover:underline" onClick={() => setSelectedUser(u)}>{u.name}</td>
+                                <td className="p-3 font-medium text-blue-700"><button type="button" className="hover:underline text-left w-full" onClick={() => setSelectedUser(u)}>{u.name}</button></td>
                                 <td className="p-3 text-gray-500">{u.city || '-'}</td>
                                 <td className="p-3 font-mono text-xs">{u.username}</td>
                                 <td className="p-3 text-end flex justify-end gap-2">
@@ -455,12 +459,53 @@ const EstablishmentsView: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedSchool, setSelectedSchool] = useState<{name: string, city: string} | null>(null);
-    const [schoolDetailTab, setSchoolDetailTab] = useState<'STAFF' | 'STUDENTS'>('STAFF');
+    const [schoolDetailTab, setSchoolDetailTab] = useState<'STAFF' | 'STUDENTS' | 'LORAWAN'>('STAFF');
     const [showPasswords, setShowPasswords] = useState(false);
+    const [lorawanConfig, setLorawanConfig] = useState<LoRaWANConfig | null>(null);
 
     useEffect(() => {
         ApiService.getUsers().then(setUsers);
     }, []);
+
+    useEffect(() => {
+        if (selectedSchool && schoolDetailTab === 'LORAWAN') {
+            const structure = StorageService.getSchoolStructure(selectedSchool.name, selectedSchool.city);
+            if (structure && structure.lorawanConfig) {
+                setLorawanConfig(structure.lorawanConfig);
+            } else {
+                setLorawanConfig({ scenario: 'EXTERNAL_NS' }); // default
+            }
+        }
+    }, [selectedSchool, schoolDetailTab]);
+
+    const handleSaveLorawanConfig = async () => {
+        if (!selectedSchool || !lorawanConfig) return;
+        let structure = StorageService.getSchoolStructure(selectedSchool.name, selectedSchool.city);
+        if (!structure) {
+            structure = {
+                id: `sch-${Date.now()}`,
+                school: selectedSchool.name,
+                city: selectedSchool.city,
+                classes: [],
+            };
+        }
+        structure.lorawanConfig = lorawanConfig;
+        StorageService.saveSchoolStructure(structure);
+        
+        // Push the merged configs to the backend
+        try {
+            const allStructures = StorageService.getItem<SchoolStructure[]>('TINMEL_STRUCTURES', []);
+            const allConfigs = allStructures.filter(s => s.lorawanConfig).map(s => ({
+                schoolId: s.id,
+                ...s.lorawanConfig
+            }));
+            await ApiService.saveLorawanConfigs(allConfigs);
+            alert('Configuration LoRaWAN enregistrée et synchronisée avec le serveur !');
+        } catch (e) {
+            console.error(e);
+            alert("Erreur lors de la synchronisation LoRaWAN (vérifiez le log). L'enregistrement local est réussi.");
+        }
+    };
 
     const cleanInput = (str: string) => str.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -492,9 +537,9 @@ const EstablishmentsView: React.FC = () => {
     };
 
     const handleDeleteSchool = (schoolName: string, schoolCity: string) => {
-        if (window.confirm(t('deleteSchoolConfirm'))) {
+        if (globalThis.confirm(t('deleteSchoolConfirm'))) {
             StorageService.deleteSchoolFull(schoolName, schoolCity);
-            window.location.reload(); 
+            globalThis.location.reload(); 
         }
     };
 
@@ -579,9 +624,9 @@ const EstablishmentsView: React.FC = () => {
             )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {paginated.map((s, idx) => (
-                        <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition relative group">
-                            <div className="cursor-pointer" onClick={() => { setSelectedSchool(s); setSchoolDetailTab('STAFF'); }}>
+                    {paginated.map((s) => (
+                        <div key={s.name + s.city} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition relative group">
+                            <button type="button" className="text-left w-full cursor-pointer" onClick={() => { setSelectedSchool(s); setSchoolDetailTab('STAFF'); }}>
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="bg-blue-50 p-3 rounded-lg text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                                         <Building className="w-6 h-6"/>
@@ -592,7 +637,7 @@ const EstablishmentsView: React.FC = () => {
                                 <div className="flex items-center gap-1 text-gray-500 text-sm">
                                     <MapPin className="w-3 h-3"/> {s.city}
                                 </div>
-                            </div>
+                            </button>
                             <button 
                                 onClick={(e) => { e.stopPropagation(); handleDeleteSchool(s.name, s.city); }}
                                 className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-full transition z-10"
@@ -631,22 +676,155 @@ const EstablishmentsView: React.FC = () => {
                             </div>
                         </div>
                         
-                        <div className="flex gap-4 p-4 border-b bg-gray-50">
+                        <div className="flex gap-4 p-4 border-b bg-gray-50 overflow-x-auto">
                             <button 
                                 onClick={() => setSchoolDetailTab('STAFF')}
-                                className={`px-4 py-2 rounded text-sm font-bold transition ${schoolDetailTab === 'STAFF' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'}`}
+                                className={`px-4 py-2 rounded text-sm font-bold whitespace-nowrap transition ${schoolDetailTab === 'STAFF' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'}`}
                             >
                                 {t('staffList')}
                             </button>
                             <button 
                                 onClick={() => setSchoolDetailTab('STUDENTS')}
-                                className={`px-4 py-2 rounded text-sm font-bold transition ${schoolDetailTab === 'STUDENTS' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'}`}
+                                className={`px-4 py-2 rounded text-sm font-bold whitespace-nowrap transition ${schoolDetailTab === 'STUDENTS' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'}`}
                             >
                                 {t('viewStudents')}
+                            </button>
+                            <button 
+                                onClick={() => setSchoolDetailTab('LORAWAN')}
+                                className={`px-4 py-2 rounded text-sm font-bold whitespace-nowrap transition flex items-center gap-2 ${schoolDetailTab === 'LORAWAN' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border'}`}
+                            >
+                                <Wifi className="w-4 h-4"/> Config. LoRaWAN
                             </button>
                         </div>
 
                         <div className="flex-1 overflow-auto p-0">
+                            {schoolDetailTab === 'LORAWAN' && lorawanConfig && (
+                                <div className="p-6 max-w-2xl mx-auto">
+                                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                        <h4 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-6">
+                                            <Wifi className="w-5 h-5 text-indigo-600" />
+                                            Configuration Passerelle LoRaWAN
+                                        </h4>
+                                        <div className="space-y-4">
+                                            <div>
+                                                    <label htmlFor={`scenario-${lorawanConfig.scenario}`} className="block text-sm font-medium text-gray-700 mb-1">Scénario de Déploiement</label>
+                                                <select
+                                                    id={`scenario-${lorawanConfig.scenario}`}
+                                                    value={lorawanConfig.scenario}
+                                                    onChange={e => setLorawanConfig({ ...lorawanConfig, scenario: e.target.value as any })}
+                                                    className="w-full border border-gray-300 rounded-lg p-2"
+                                                >
+                                                    <option value="EXTERNAL_NS">Serveur Réseau Externe (passerelle intégrée, TTN, ChirpStack...)</option>
+                                                    <option value="INTERNAL_NS">Serveur Réseau Intégré (Tinmel agit comme serveur réseau via module local)</option>
+                                                </select>
+                                                <p className="text-xs text-gray-500 mt-1">Sélectionnez comment Tinmel doit recevoir les données de vos capteurs.</p>
+                                            </div>
+
+                                            {lorawanConfig.scenario === 'EXTERNAL_NS' && (
+                                                <div className="space-y-4 border-t pt-4">
+                                                    <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded border border-blue-100">
+                                                        Dans ce scénario, Tinmel se connectera à un serveur MQTT existant via WebSocket pour recevoir les messages montants.
+                                                    </p>
+                                                    <div>
+                                                        <label htmlFor="mqttUrlInput" className="block text-sm font-medium text-gray-700 mb-1">URL du Broker MQTT (WebSocket)</label>
+                                                        <input 
+                                                            id="mqttUrlInput"
+                                                            type="text" 
+                                                            placeholder="ex: wss://eu1.cloud.thethings.network:8887"
+                                                            value={lorawanConfig.mqttUrl || ''} 
+                                                            onChange={e => setLorawanConfig({ ...lorawanConfig, mqttUrl: e.target.value })} 
+                                                            className="w-full border border-gray-300 rounded-lg p-2" 
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label htmlFor="mqttUserInput" className="block text-sm font-medium text-gray-700 mb-1">Nom d'utilisateur (AppID)</label>
+                                                            <input 
+                                                                id="mqttUserInput"
+                                                                type="text" 
+                                                                value={lorawanConfig.mqttUsername || ''} 
+                                                                onChange={e => setLorawanConfig({ ...lorawanConfig, mqttUsername: e.target.value })} 
+                                                                className="w-full border border-gray-300 rounded-lg p-2" 
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label htmlFor="mqttPassInput" className="block text-sm font-medium text-gray-700 mb-1">Mot de passe (AppKey / Password)</label>
+                                                            <input 
+                                                                id="mqttPassInput"
+                                                                type="password" 
+                                                                value={lorawanConfig.mqttPassword || ''} 
+                                                                onChange={e => setLorawanConfig({ ...lorawanConfig, mqttPassword: e.target.value })} 
+                                                                className="w-full border border-gray-300 rounded-lg p-2" 
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {lorawanConfig.scenario === 'INTERNAL_NS' && (
+                                                <div className="space-y-4 border-t pt-4">
+                                                    <p className="text-sm text-gray-600 bg-purple-50 p-3 rounded border border-purple-100">
+                                                        Dans ce scénario, connectez votre Packet Forwarder vers le module Tinmel Edge en local. Spécifiez l'EUI de la passerelle.
+                                                    </p>
+                                                    <div>
+                                                        <label htmlFor="mqttEuiInput" className="block text-sm font-medium text-gray-700 mb-1">EUI de la Passerelle</label>
+                                                        <input 
+                                                            id="mqttEuiInput"
+                                                            type="text" 
+                                                            placeholder="ex: AABBCCDDEEFF0011"
+                                                            value={lorawanConfig.gatewayEui || ''} 
+                                                            onChange={e => setLorawanConfig({ ...lorawanConfig, gatewayEui: e.target.value })} 
+                                                            className="w-full border border-gray-300 rounded-lg p-2 uppercase font-mono" 
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-4 border-t pt-4">
+                                                <h5 className="font-medium text-gray-800 flex items-center gap-2">
+                                                    <Database className="w-4 h-4" />
+                                                    Script de Décodage (Payload Configurator)
+                                                </h5>
+                                                <p className="text-sm text-gray-600">
+                                                    Vous pouvez écrire une fonction JavaScript <code>decode(bytes)</code> pour transformer le payload brut de la radio (tableau d'octets) en format JSON attendu par Tinmel.
+                                                </p>
+                                                <div>
+                                                    <textarea 
+                                                        value={lorawanConfig.decoderScript || ''} 
+                                                        onChange={e => setLorawanConfig({ ...lorawanConfig, decoderScript: e.target.value })} 
+                                                        rows={10} 
+                                                        className="w-full font-mono text-sm border border-gray-300 rounded-lg p-3 bg-gray-50 focus:bg-white transition-colors"
+                                                        placeholder={`function decode(bytes) {
+  // bytes est un Array de nombres, ex: [0x01, 0x02, 0xff]
+  var quizId = "q-" + bytes[0];
+  var studentId = "s-" + bytes[1];
+  var score = bytes[2];
+  
+  return {
+    quizId: quizId,
+    studentId: studentId,
+    score: score,
+    answers: []
+  };
+}`}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-6 flex justify-end gap-2">
+                                            <button 
+                                                onClick={handleSaveLorawanConfig}
+                                                className="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-indigo-700"
+                                            >
+                                                <Save className="w-4 h-4"/>
+                                                {t('save')}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {schoolDetailTab === 'STAFF' && (
                                 <table className="w-full text-sm text-start">
                                     <thead className="bg-gray-50 sticky top-0 border-b shadow-sm z-10">
@@ -834,22 +1012,19 @@ const BillingView: React.FC = () => {
     const [selectedSchool, setSelectedSchool] = useState<{name: string, city: string} | null>(null);
     const [externalClient, setExternalClient] = useState({ name: '', address: '' });
     const [billingDetails, setBillingDetails] = useState({ priceHT: '', tvaRate: 20 });
-    const [isPrinting, setIsPrinting] = useState(false);
 
     useEffect(() => {
         ApiService.getUsers().then(setUsers);
     }, []);
 
     const printInvoice = () => {
-        setIsPrinting(true);
         setTimeout(() => {
-            window.print();
-            setIsPrinting(false);
+            globalThis.print();
         }, 500);
     };
 
     // Calculate Prices
-    const ht = parseFloat(billingDetails.priceHT) || 0;
+    const ht = Number.parseFloat(billingDetails.priceHT) || 0;
     const tvaAmount = ht * (billingDetails.tvaRate / 100);
     const ttc = ht + tvaAmount;
 
@@ -869,8 +1044,8 @@ const BillingView: React.FC = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {/* Schools List */}
-                    {schools.map((s, idx) => (
-                        <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
+                    {schools.map((s) => (
+                        <div key={s.name + s.city} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
                             <div className="flex items-start justify-between mb-4">
                                 <div className="bg-emerald-50 p-3 rounded-lg text-emerald-600">
                                     <CreditCard className="w-6 h-6"/>
@@ -888,14 +1063,14 @@ const BillingView: React.FC = () => {
                         </div>
                     ))}
                     {/* External Client Option */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-dashed border-gray-300 hover:shadow-md transition flex flex-col items-center justify-center cursor-pointer group"
+                    <button type="button" className="bg-white p-6 rounded-xl shadow-sm border border-dashed border-gray-300 hover:shadow-md transition flex flex-col items-center justify-center cursor-pointer group text-center w-full"
                          onClick={() => { setSelectedSchool(null); setBillingMode('EXTERNAL'); setExternalClient({name: '', address: ''}); }}
                     >
                         <div className="bg-gray-100 p-4 rounded-full text-gray-500 group-hover:bg-emerald-50 group-hover:text-emerald-600 mb-3 transition">
                             <Plus className="w-8 h-8"/>
                         </div>
                         <h3 className="font-bold text-gray-600 group-hover:text-emerald-700">Autre Client</h3>
-                    </div>
+                    </button>
             </div>
 
             {/* Modal & Invoice Template */}
@@ -915,20 +1090,20 @@ const BillingView: React.FC = () => {
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Nom du Client</label>
-                                    <input className="w-full border rounded p-2" value={externalClient.name} onChange={e => setExternalClient({...externalClient, name: e.target.value})} placeholder="Nom de l'entreprise ou école" />
+                                    <label htmlFor="extClientName" className="block text-xs font-bold text-gray-500 mb-1">Nom du Client</label>
+                                    <input id="extClientName" className="w-full border rounded p-2" value={externalClient.name} onChange={e => setExternalClient({...externalClient, name: e.target.value})} placeholder="Nom de l'entreprise ou école" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Adresse</label>
-                                    <input className="w-full border rounded p-2" value={externalClient.address} onChange={e => setExternalClient({...externalClient, address: e.target.value})} placeholder="Adresse..." />
+                                    <label htmlFor="extClientAddress" className="block text-xs font-bold text-gray-500 mb-1">Adresse</label>
+                                    <input id="extClientAddress" className="w-full border rounded p-2" value={externalClient.address} onChange={e => setExternalClient({...externalClient, address: e.target.value})} placeholder="Adresse..." />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Prix H.T (DH)</label>
-                                    <input type="number" className="w-full border rounded p-2" value={billingDetails.priceHT} onChange={e => setBillingDetails({...billingDetails, priceHT: e.target.value})} placeholder="0.00" />
+                                    <label htmlFor="extClientHT" className="block text-xs font-bold text-gray-500 mb-1">Prix H.T (DH)</label>
+                                    <input id="extClientHT" type="number" className="w-full border rounded p-2" value={billingDetails.priceHT} onChange={e => setBillingDetails({...billingDetails, priceHT: e.target.value})} placeholder="0.00" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">TVA (%)</label>
-                                    <input type="number" className="w-full border rounded p-2" value={billingDetails.tvaRate} onChange={e => setBillingDetails({...billingDetails, tvaRate: parseFloat(e.target.value) || 0})} />
+                                    <label htmlFor="extClientTVA" className="block text-xs font-bold text-gray-500 mb-1">TVA (%)</label>
+                                    <input id="extClientTVA" type="number" className="w-full border rounded p-2" value={billingDetails.tvaRate} onChange={e => setBillingDetails({...billingDetails, tvaRate: Number.parseFloat(e.target.value) || 0})} />
                                 </div>
                             </div>
                         </div>
@@ -1063,9 +1238,11 @@ const ModeratorsView: React.FC = () => {
     };
 
     const handleDeleteUser = async (id: string) => {
-        if (confirm(t('delete') + '?')) {
+        const wantsToDelete = confirm(t('delete') + '?');
+        if (wantsToDelete) {
             await ApiService.deleteUser(id);
-            ApiService.getUsers().then(setUsers);
+            const userList = await ApiService.getUsers();
+            setUsers(userList);
         }
     };
 
@@ -1134,12 +1311,12 @@ const CommunicationView: React.FC = () => {
             </h2>
             <div className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('announceTitle')}</label>
-                    <input className="w-full border rounded p-2" value={announcementTitle} onChange={e => setAnnouncementTitle(e.target.value)} />
+                    <label htmlFor="annTitleInput" className="block text-sm font-medium text-gray-700 mb-1">{t('announceTitle')}</label>
+                    <input id="annTitleInput" className="w-full border rounded p-2" value={announcementTitle} onChange={e => setAnnouncementTitle(e.target.value)} />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('announceContent')}</label>
-                    <textarea className="w-full border rounded p-2 h-32" value={announcementContent} onChange={e => setAnnouncementContent(e.target.value)} />
+                    <label htmlFor="annContentInput" className="block text-sm font-medium text-gray-700 mb-1">{t('announceContent')}</label>
+                    <textarea id="annContentInput" className="w-full border rounded p-2 h-32" value={announcementContent} onChange={e => setAnnouncementContent(e.target.value)} />
                 </div>
                 <button onClick={handleBroadcast} className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 flex items-center justify-center gap-2 font-medium">
                     <Send className="w-4 h-4 rtl:flip"/> {t('publish')}
@@ -1193,7 +1370,7 @@ const SettingsView: React.FC = () => {
         a.download = `tinmel_backup_${new Date().toISOString().slice(0,10)}.json`;
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
+        a.remove();
         alert(t('backupSuccess'));
     };
 
@@ -1205,19 +1382,19 @@ const SettingsView: React.FC = () => {
                     <Settings className="w-6 h-6"/> {t('adminProfile')}
                 </h2>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('username')}</label>
-                    <input className="w-full border rounded p-3 bg-gray-50" value={adminUsername} onChange={e => setAdminUsername(e.target.value)} />
+                    <label htmlFor="adminUsernameInput" className="block text-sm font-medium text-gray-700 mb-1">{t('username')}</label>
+                    <input id="adminUsernameInput" className="w-full border rounded p-3 bg-gray-50" value={adminUsername} onChange={e => setAdminUsername(e.target.value)} />
                 </div>
                 <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800 mb-4">
                     <Lock className="w-4 h-4 inline mr-2"/> {t('changePassword')}
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('newPassword')}</label>
-                    <input type="password" className="w-full border rounded p-3" value={adminNewPass} onChange={e => setAdminNewPass(e.target.value)} placeholder="••••••" />
+                    <label htmlFor="adminPassInput" className="block text-sm font-medium text-gray-700 mb-1">{t('newPassword')}</label>
+                    <input id="adminPassInput" type="password" className="w-full border rounded p-3" value={adminNewPass} onChange={e => setAdminNewPass(e.target.value)} placeholder="••••••" />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('confirmPassword')}</label>
-                    <input type="password" className="w-full border rounded p-3" value={adminConfirmPass} onChange={e => setAdminConfirmPass(e.target.value)} placeholder="••••••" />
+                    <label htmlFor="adminConfirmPassInput" className="block text-sm font-medium text-gray-700 mb-1">{t('confirmPassword')}</label>
+                    <input id="adminConfirmPassInput" type="password" className="w-full border rounded p-3" value={adminConfirmPass} onChange={e => setAdminConfirmPass(e.target.value)} placeholder="••••••" />
                 </div>
                 <button onClick={handleUpdateAdminProfile} className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 flex items-center justify-center gap-2 font-medium">
                     <Check className="w-4 h-4 rtl:flip"/> {t('save')}
@@ -1261,21 +1438,22 @@ const AdminDashboard: React.FC<Props> = ({ onLogout }) => {
     <div className="min-h-screen bg-gray-50 p-6 font-sans text-gray-900" dir={dir}>
        <div className="max-w-[95vw] mx-auto">
            {/* Header */}
-           <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-               <div className="flex items-center gap-4">
+           <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-white p-6 rounded-xl shadow-sm border relative overflow-hidden">
+               <HeaderBackground color="30, 64, 175" />
+               <div className="flex items-center gap-4 relative z-10">
                    <span className="text-4xl font-black text-blue-800 font-logo tracking-tighter">{t('appName')}</span>
                    <div className="h-8 w-px bg-gray-300 hidden md:block"></div>
                    <h1 className="text-gray-500 font-medium">{t('adminPanel')}</h1>
                </div>
-               <div className="flex items-center gap-3">
+               <div className="flex items-center gap-3 relative z-10">
                     <button 
                         onClick={() => navigate('settings')} 
-                        className={`p-2 rounded-full transition-colors ${isActive('settings') ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-600'}`}
+                        className={`bg-white/80 backdrop-blur shadow-sm p-2 rounded-full transition-colors ${isActive('settings') ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-600'}`}
                         title={t('settings')}
                     >
                         <Settings className="w-5 h-5"/>
                     </button>
-                   <button onClick={onLogout} className="flex items-center gap-2 text-red-600 hover:bg-red-50 px-4 py-2 rounded-full transition-colors font-medium text-sm">
+                   <button onClick={onLogout} className="flex items-center gap-2 bg-white/80 backdrop-blur shadow-sm text-red-600 hover:bg-red-50 px-4 py-2 rounded-full transition-colors font-medium text-sm">
                        <LogOut className="w-4 h-4 rtl:flip"/> {t('logout')}
                    </button>
                </div>

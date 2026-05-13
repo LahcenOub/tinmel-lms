@@ -1,6 +1,5 @@
 
 import sqlite3 from 'sqlite3';
-import { join } from 'path';
 
 // Abstraction de la base de données
 // Permet de changer facilement de stratégie (SQLite -> MySQL/Postgres) plus tard.

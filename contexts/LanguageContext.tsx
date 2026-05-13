@@ -24,10 +24,12 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     return translations[language][key as keyof typeof translations['fr']] || key;
   };
 
-  const dir = language === 'ar' ? 'rtl' : 'ltr';
+  const dir: 'rtl' | 'ltr' = language === 'ar' ? 'rtl' : 'ltr';
+
+  const value = React.useMemo(() => ({ language, setLanguage, t, dir }), [language]);
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t, dir }}>
+    <LanguageContext.Provider value={value}>
       {children}
     </LanguageContext.Provider>
   );

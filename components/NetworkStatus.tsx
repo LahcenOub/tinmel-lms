@@ -1,19 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff } from 'lucide-react';
+import { Wifi, WifiOff, Radio } from 'lucide-react';
+import { useNetworkMode } from '../contexts/NetworkModeContext';
 
 const NetworkStatus: React.FC = () => {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const { mode, setMode } = useNetworkMode();
   const [showBanner, setShowBanner] = useState(false);
+  const [lastMode, setLastMode] = useState(mode);
 
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
+    if (mode !== lastMode) {
       setShowBanner(true);
-      setTimeout(() => setShowBanner(false), 3000); // Hide "Back Online" after 3s
+      setLastMode(mode);
+      if (mode === 'ONLINE') {
+        const timer = setTimeout(() => setShowBanner(false), 3000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [mode, lastMode]);
+
+  // If explicit offline/online is triggered from browser
+  useEffect(() => {
+    const handleOnline = () => {
+      // Handled by Context, just trigger banner
+      setShowBanner(true);
+      setTimeout(() => setShowBanner(false), 3000);
     };
 
     const handleOffline = () => {
-      setIsOnline(false);
       setShowBanner(true);
     };
 
@@ -26,27 +39,37 @@ const NetworkStatus: React.FC = () => {
     };
   }, []);
 
-  if (!showBanner && isOnline) return null;
+  if (!showBanner && mode === 'ONLINE') return null;
 
   return (
     <div 
       className={`fixed bottom-4 left-4 z-50 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 transition-all duration-300 transform ${
-        isOnline 
+        mode === 'ONLINE' 
           ? 'bg-green-600 text-white translate-y-0' 
+          : mode === 'LORAWAN'
+          ? 'bg-purple-600 text-white translate-y-0 shadow-purple-500/50'
           : 'bg-amber-600 text-white translate-y-0'
       }`}
     >
-      {isOnline ? <Wifi className="w-5 h-5" /> : <WifiOff className="w-5 h-5" />}
-      <div>
+      {mode === 'ONLINE' ? <Wifi className="w-5 h-5" /> : mode === 'LORAWAN' ? <Radio className="w-5 h-5 animate-pulse" /> : <WifiOff className="w-5 h-5" />}
+      <div className="flex-1">
         <p className="font-bold text-sm">
-          {isOnline ? 'Connexion rétablie' : 'Mode hors ligne'}
+          {mode === 'ONLINE' ? 'Connexion rétablie' : mode === 'LORAWAN' ? 'Mode LoRaWAN Actif' : 'Mode hors ligne'}
         </p>
-        {!isOnline && (
-          <p className="text-xs opacity-90">
-            Vous pouvez continuer à travailler.
-          </p>
-        )}
+        <p className="text-xs opacity-90">
+          {mode === 'ONLINE' ? 'Synchronisation en cours...' : mode === 'LORAWAN' ? 'Émission bas-débit activée.' : 'Données stockées localement.'}
+        </p>
       </div>
+      
+      {/* Dev toggle since we lack physical antannas */}
+      {mode !== 'ONLINE' && (
+        <button 
+          onClick={() => setMode(mode === 'LORAWAN' ? 'OFFLINE' : 'LORAWAN')}
+          className="ml-2 px-2 py-1 bg-white/20 hover:bg-white/30 rounded text-xs transition"
+        >
+          Basculer {mode === 'LORAWAN' ? 'Offline' : 'LoRa'}
+        </button>
+      )}
     </div>
   );
 };

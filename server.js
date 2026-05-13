@@ -5,10 +5,10 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
 import multer from 'multer';
-import fs from 'fs';
-import os from 'os';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import fs from 'node:fs';
+import os from 'node:os';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet'; // Security Headers
 import { GoogleGenAI, Type } from "@google/genai"; // Import SDK Backend
@@ -16,11 +16,13 @@ import { GoogleGenAI, Type } from "@google/genai"; // Import SDK Backend
 // Nouveaux imports
 import { db } from './backend/db.js';
 import { emailService } from './backend/email.js';
+import { loraManager } from './backend/lorawan.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy for express-rate-limit
 const PORT = process.env.PORT || 3001;
 // Sécurité JWT : Utiliser une variable d'env ou une clé forte par défaut
 const JWT_SECRET = process.env.JWT_SECRET || 'tinmel_secure_key_' + Date.now(); 
@@ -35,12 +37,14 @@ const limiter = rateLimit({
     limit: 300, // Limite globale plus large pour l'API
     standardHeaders: 'draft-7',
     legacyHeaders: false,
+    validate: { trustProxy: false },
     message: { error: "Trop de requêtes, veuillez réessayer plus tard." }
 });
 
 const authLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 heure
     limit: 20, // 20 tentatives de login max par heure par IP
+    validate: { trustProxy: false },
     message: { error: "Trop de tentatives de connexion. Réessayez dans une heure." }
 });
 
@@ -52,7 +56,9 @@ app.use(helmet({
 }));
 
 // --- INITIALISATION DB ---
-db.connect({ path: process.env.DB_PATH || './database.sqlite' });
+db.connect({ path: process.env.DB_PATH || './database.sqlite' }).then(() => {
+    loraManager.init();
+});
 
 // --- CONFIGURATION MULTER ---
 const uploadDir = join(__dirname, 'uploads');
@@ -82,7 +88,7 @@ const upload = multer({
         if (allowedTypes.includes(file.mimetype) || file.mimetype.startsWith('image/') || file.mimetype.startsWith('audio/') || file.mimetype.startsWith('video/')) {
             cb(null, true);
         } else {
-            cb(null, true); 
+            cb(new Error('Type de fichier non autorisé'), false); 
         }
     }
 });
@@ -360,7 +366,11 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/auth/logout', (req, res) => {
-    res.clearCookie('token');
+    res.clearCookie('token', { 
+        httpOnly: true, 
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax' 
+    });
     res.json({ success: true });
 });
 
@@ -517,18 +527,63 @@ app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => 
     res.json({ url: fileUrl });
 });
 
-// --- STATIC FILES (PRODUCTION) ---
+// --- LORAWAN ROUTES ---
+
+// Save configs from Admin Dashboard
+app.post('/api/settings/lorawan', authenticateToken, requireRole(['ADMIN', 'COORDINATOR']), async (req, res) => {
+    try {
+        const { configs } = req.body;
+        await loraManager.saveConfigs(configs);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Webhook for INTERNAL_NS Gateways
+app.post('/api/lorawan/uplink/:gatewayEui', async (req, res) => {
+    const gatewayEui = req.params.gatewayEui;
+    const schoolId = loraManager.isValidGateway(gatewayEui);
+    
+    if (!schoolId) {
+        return res.status(403).json({ error: "Gateway non reconnue" });
+    }
+
+    try {
+        await loraManager.processUplink(schoolId, req.body);
+        res.status(200).json({ success: true, message: "Payload traité avec succès" });
+    } catch (e) {
+        console.error("Erreur de traitement webhook:", e);
+        res.status(500).json({ error: "Erreur serveur" });
+    }
+});
+
+// --- STATIC FILES & VITE MIDDLEWARE ---
 const distPath = join(__dirname, 'dist');
-if (fs.existsSync(distPath)) {
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-        if (!req.path.startsWith('/api')) res.sendFile(join(distPath, 'index.html'));
-    });
+
+async function setupVite() {
+    if (process.env.NODE_ENV !== 'production') {
+        const { createServer: createViteServer } = await import('vite');
+        const vite = await createViteServer({
+            server: { middlewareMode: true },
+            appType: 'spa',
+        });
+        app.use(vite.middlewares);
+    } else {
+        if (fs.existsSync(distPath)) {
+            app.use(express.static(distPath));
+            app.get('*', (req, res) => {
+                if (!req.path.startsWith('/api')) res.sendFile(join(distPath, 'index.html'));
+            });
+        }
+    }
 }
 
-app.listen(PORT, () => {
-    console.log(`🚀 Serveur Tinmel démarré sur le port ${PORT}`);
-    console.log(`📂 Uploads: ${uploadDir}`);
-    console.log(`🔒 Lockfile: ${LOCK_FILE}`);
-    console.log(`🤖 AI Service: ${API_KEY ? 'Configuré' : 'Désactivé (Manque API_KEY dans .env)'}`);
+setupVite().then(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`🚀 Serveur Tinmel démarré sur le port ${PORT}`);
+        console.log(`📂 Uploads: ${uploadDir}`);
+        console.log(`🔒 Lockfile: ${LOCK_FILE}`);
+        console.log(`🤖 AI Service: ${API_KEY ? 'Configuré' : 'Désactivé (Manque API_KEY dans .env)'}`);
+    });
 });
