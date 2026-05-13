@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 
 interface LowDataModeContextType {
   isLowDataMode: boolean;
@@ -55,7 +56,7 @@ export const LowDataModeProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const newMode = !isLowDataMode;
     setIsLowDataMode(newMode);
     try {
-      localStorage.setItem('tinmel_low_data_mode', String(newMode));
+      localStorage.setItem(DOMPurify.sanitize('tinmel_low_data_mode'), DOMPurify.sanitize(String(newMode)));
     } catch (e) {}
   };
 

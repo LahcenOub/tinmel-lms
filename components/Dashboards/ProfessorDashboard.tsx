@@ -637,7 +637,7 @@ const QuizzesView: React.FC<{ user: User }> = ({ user }) => {
 
                      return (
                      <div key={q.id} className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-                         <div className="p-4 flex justify-between items-center group cursor-pointer" onClick={() => setExpandedQuizId(isExpanded ? null : q.id)}>
+                         <button type="button" className="w-full text-left p-4 flex justify-between items-center group cursor-pointer" onClick={() => setExpandedQuizId(isExpanded ? null : q.id)}>
                              <div>
                                  <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
                                      {q.title} 
@@ -654,7 +654,7 @@ const QuizzesView: React.FC<{ user: User }> = ({ user }) => {
                                  </div>
                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteQuiz(q.id); }} className="text-gray-400 hover:text-red-500 p-2 border-l pl-4"><Trash2 className="w-5 h-5"/></button>
                              </div>
-                         </div>
+                         </button>
                          
                          {isExpanded && (
                              <div className="border-t border-gray-100 bg-gray-50 p-4">

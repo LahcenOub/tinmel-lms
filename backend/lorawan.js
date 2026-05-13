@@ -15,7 +15,8 @@ class LoRaWANManager {
                 this.configs = JSON.parse(row.value);
                 this.startClients();
             } catch (e) {
-                console.error("Failed to parse lorawan_configs:", e);
+                const safeErr = e instanceof Error ? e.message.replace(/[\r\n]+/g, ' ') : String(e).replace(/[\r\n]+/g, ' ');
+                console.error("Failed to parse lorawan_configs:", safeErr);
             }
         }
     }
@@ -34,7 +35,8 @@ class LoRaWANManager {
         // Start new clients for EXTERNAL_NS
         this.configs.forEach(conf => {
             if (conf.scenario === 'EXTERNAL_NS' && conf.mqttUrl) {
-                console.log(`Starting MQTT client for ${conf.mqttUrl}`);
+                const safeUrl = String(conf.mqttUrl).replace(/[\r\n]+/g, '');
+                console.log(`Starting MQTT client for ${safeUrl}`);
                 const opts = {};
                 if (conf.mqttUsername) opts.username = conf.mqttUsername;
                 if (conf.mqttPassword) opts.password = conf.mqttPassword;
@@ -43,9 +45,12 @@ class LoRaWANManager {
                 this.mqttClients[conf.schoolId] = client;
 
                 client.on('connect', () => {
-                    console.log(`✅ LoRaWAN MQTT Connected: ${conf.mqttUrl}`);
+                    console.log(`✅ LoRaWAN MQTT Connected: ${safeUrl}`);
                     client.subscribe('#', (err) => {
-                        if(err) console.error("MQTT Subscribe error:", err);
+                        if(err) {
+                            const safeErr = err instanceof Error ? err.message.replace(/[\r\n]+/g, ' ') : String(err).replace(/[\r\n]+/g, ' ');
+                            console.error("MQTT Subscribe error:", safeErr);
+                        }
                     });
                 });
 
@@ -54,7 +59,8 @@ class LoRaWANManager {
                 });
 
                 client.on('error', (err) => {
-                    console.error(`❌ MQTT Error on ${conf.mqttUrl}:`, err.message);
+                    const safeErr = err instanceof Error ? err.message.replace(/[\r\n]+/g, ' ') : String(err).replace(/[\r\n]+/g, ' ');
+                    console.error(`❌ MQTT Error on ${safeUrl}:`, safeErr);
                 });
             }
         });
@@ -62,7 +68,8 @@ class LoRaWANManager {
 
     // Process uplink (from MQTT or from HTTP webhook)
     async processUplink(schoolId, payloadStr) {
-        console.log(`📡 Recu uplink LoRaWAN pour school ${schoolId} (payload received)`);
+        const safeSchoolId = String(schoolId).replace(/[\r\n]+/g, '');
+        console.log(`📡 Recu uplink LoRaWAN pour school ${safeSchoolId} (payload received)`);
         try {
             const data = typeof payloadStr === 'string' ? JSON.parse(payloadStr) : payloadStr;
             const conf = this.configs.find(c => c.schoolId === schoolId);
@@ -75,7 +82,8 @@ class LoRaWANManager {
                  console.log("⚠️ Le payload ignoré: manquant quizId ou studentId");
             }
         } catch (e) {
-            console.error("Error processing LoRaWAN uplink:", e);
+            const safeError = e instanceof Error ? e.message.replace(/[\r\n]+/g, ' ') : String(e).replace(/[\r\n]+/g, ' ');
+            console.error("Error processing LoRaWAN uplink:", safeError);
         }
     }
 
@@ -95,7 +103,8 @@ class LoRaWANManager {
                 return context.result;
             }
         } catch (e) {
-            console.error("❌ Erreur pendant l'exécution du script de décodage:", e);
+            const safeErr = e instanceof Error ? e.message.replace(/[\r\n]+/g, ' ') : String(e).replace(/[\r\n]+/g, ' ');
+            console.error("❌ Erreur pendant l'exécution du script de décodage:", safeErr);
         }
         return null;
     }
@@ -142,9 +151,12 @@ class LoRaWANManager {
                 `INSERT INTO results (id, quizId, studentId, score, submittedAt, data) VALUES (?, ?, ?, ?, ?, ?)`,
                 [resultId, decoded.quizId, decoded.studentId, finalScore, resultData.submittedAt, JSON.stringify(resultData)]
             );
-            console.log(`✅ [LoRaWAN] Resultat sauvegardé pour quizId=${decoded.quizId} studentId=${decoded.studentId}`);
+            const safeQuizId = String(decoded.quizId).replace(/[\r\n]+/g, '');
+            const safeStudentId = String(decoded.studentId).replace(/[\r\n]+/g, '');
+            console.log(`✅ [LoRaWAN] Resultat sauvegardé pour quizId=${safeQuizId} studentId=${safeStudentId}`);
         } catch (e) {
-            console.error("❌ [LoRaWAN] Save result error:", e);
+            const safeErr = e instanceof Error ? e.message.replace(/[\r\n]+/g, ' ') : String(e).replace(/[\r\n]+/g, ' ');
+            console.error("❌ [LoRaWAN] Save result error:", safeErr);
         }
     }
 

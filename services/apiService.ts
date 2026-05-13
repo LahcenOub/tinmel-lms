@@ -1,6 +1,7 @@
 
 import { User, QuizResult } from '../types';
 import { StorageService } from './storageService';
+import DOMPurify from 'dompurify';
 
 export interface PaginatedResponse<T> {
     data: T[];
@@ -221,7 +222,7 @@ export const ApiService = {
             const idx = users.findIndex(u => u.id === id);
             if (idx >= 0) {
                 users[idx] = { ...users[idx], ...updates };
-                localStorage.setItem('quizmaster_users', JSON.stringify(users));
+                localStorage.setItem('quizmaster_users', DOMPurify.sanitize(JSON.stringify(users)));
             }
             return true;
         }

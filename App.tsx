@@ -224,15 +224,15 @@ const InstallationWizard: React.FC<{ onInstalled: () => void }> = ({ onInstalled
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">Base de Données</label>
                         <div className="space-y-2">
-                            <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${config.dbType === 'sqlite' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
-                                <input type="radio" name="db" checked={config.dbType === 'sqlite'} onChange={() => setConfig({...config, dbType: 'sqlite'})} className="text-blue-600 focus:ring-blue-500" />
+                            <label htmlFor="db-sqlite" className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${config.dbType === 'sqlite' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                                <input id="db-sqlite" type="radio" name="db" checked={config.dbType === 'sqlite'} onChange={() => setConfig({...config, dbType: 'sqlite'})} className="text-blue-600 focus:ring-blue-500" />
                                 <div>
                                     <div className="font-bold text-sm text-gray-800">SQLite (Embarqué)</div>
                                     <div className="text-xs text-gray-500">Aucune configuration requise. Idéal pour les petites écoles.</div>
                                 </div>
                             </label>
-                            <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed">
-                                <input type="radio" name="db" disabled />
+                            <label htmlFor="db-mysql" className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed">
+                                <input id="db-mysql" type="radio" name="db" disabled />
                                 <div>
                                     <div className="font-bold text-sm text-gray-800">MySQL / PostgreSQL</div>
                                     <div className="text-xs text-gray-500">Bientôt disponible pour les grandes structures.</div>
@@ -261,29 +261,25 @@ const InstallationWizard: React.FC<{ onInstalled: () => void }> = ({ onInstalled
                 )}
 
                 <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">{t('siteName')}
-                        <input required type="text" className="mt-1 w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            value={config.schoolName} onChange={e => setConfig({...config, schoolName: e.target.value})} placeholder="Ex: École Al Massira" />
-                    </label>
+                    <label htmlFor="siteName" className="block text-sm font-bold text-gray-700 mb-1">{t('siteName')}</label>
+                    <input id="siteName" required type="text" className="mt-1 w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        value={config.schoolName} onChange={e => setConfig({...config, schoolName: e.target.value})} placeholder="Ex: École Al Massira" />
                 </div>
                 <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Email Admin (Optionnel)
-                        <input type="email" className="mt-1 w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            value={config.adminEmail} onChange={e => setConfig({...config, adminEmail: e.target.value})} />
-                    </label>
+                    <label htmlFor="adminEmail" className="block text-sm font-bold text-gray-700 mb-1">Email Admin (Optionnel)</label>
+                    <input id="adminEmail" type="email" className="mt-1 w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        value={config.adminEmail} onChange={e => setConfig({...config, adminEmail: e.target.value})} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">{t('adminUsername')}
-                            <input required type="text" className="mt-1 w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                value={config.username} onChange={e => setConfig({...config, username: e.target.value})} />
-                        </label>
+                        <label htmlFor="adminUsername" className="block text-sm font-bold text-gray-700 mb-1">{t('adminUsername')}</label>
+                        <input id="adminUsername" required type="text" className="mt-1 w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            value={config.username} onChange={e => setConfig({...config, username: e.target.value})} />
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">{t('adminPassword')}
-                            <input required type="password" className="mt-1 w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                value={config.password} onChange={e => setConfig({...config, password: e.target.value})} />
-                        </label>
+                        <label htmlFor="adminPassword" className="block text-sm font-bold text-gray-700 mb-1">{t('adminPassword')}</label>
+                        <input id="adminPassword" required type="password" className="mt-1 w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            value={config.password} onChange={e => setConfig({...config, password: e.target.value})} />
                     </div>
                 </div>
 
@@ -468,8 +464,9 @@ const LoginPage: React.FC<LoginProps> = ({ role, onLoginSuccess }) => {
                         <div className="p-8">
                         <form onSubmit={handleLogin} className="space-y-5">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">{t('username')}</label>
+                                <label htmlFor="login-username-admin" className="block text-sm font-bold text-gray-700 mb-1">{t('username')}</label>
                                 <input
+                                    id="login-username-admin"
                                     type="text"
                                     className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500 transition shadow-sm"
                                     value={username}
@@ -478,8 +475,9 @@ const LoginPage: React.FC<LoginProps> = ({ role, onLoginSuccess }) => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">{t('password')}</label>
+                                <label htmlFor="login-password-admin" className="block text-sm font-bold text-gray-700 mb-1">{t('password')}</label>
                                 <input
+                                    id="login-password-admin"
                                     type="password"
                                     className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500 transition shadow-sm"
                                     value={password}
@@ -524,8 +522,9 @@ const LoginPage: React.FC<LoginProps> = ({ role, onLoginSuccess }) => {
                     
                     <form onSubmit={handleLogin} className="p-8 space-y-5">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">{t('username')}</label>
+                            <label htmlFor={`login-username-${role}`} className="block text-sm font-bold text-gray-700 mb-1">{t('username')}</label>
                             <input
+                                id={`login-username-${role}`}
                                 type="text"
                                 className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"
                                 value={username}
@@ -534,8 +533,9 @@ const LoginPage: React.FC<LoginProps> = ({ role, onLoginSuccess }) => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">{t('password')}</label>
+                            <label htmlFor={`login-password-${role}`} className="block text-sm font-bold text-gray-700 mb-1">{t('password')}</label>
                             <input
+                                id={`login-password-${role}`}
                                 type="password"
                                 className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"
                                 value={password}

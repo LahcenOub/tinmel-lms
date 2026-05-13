@@ -221,12 +221,12 @@ const CommunicationView: React.FC<{ user: User }> = ({ user }) => {
                     </h2>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('announceTitle')}</label>
-                            <input className="w-full border rounded p-2" value={announcementTitle} onChange={e => setAnnouncementTitle(e.target.value)} />
+                            <label htmlFor="announceTitle" className="block text-sm font-medium text-gray-700 mb-1">{t('announceTitle')}</label>
+                            <input id="announceTitle" className="w-full border rounded p-2" value={announcementTitle} onChange={e => setAnnouncementTitle(e.target.value)} />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('announceContent')}</label>
-                            <textarea className="w-full border rounded p-2 h-32" value={announcementContent} onChange={e => setAnnouncementContent(e.target.value)} />
+                            <label htmlFor="announceContent" className="block text-sm font-medium text-gray-700 mb-1">{t('announceContent')}</label>
+                            <textarea id="announceContent" className="w-full border rounded p-2 h-32" value={announcementContent} onChange={e => setAnnouncementContent(e.target.value)} />
                         </div>
                         <button onClick={handleBroadcastAnnouncement} className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 flex items-center justify-center gap-2">
                             <Send className="w-4 h-4 rtl:flip"/> {t('publish')}

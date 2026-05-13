@@ -314,8 +314,9 @@ const StaffManagementView: React.FC<{ user: User }> = ({ user }) => {
             {isAdding && (
                 <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex flex-col md:flex-row gap-2 animate-fade-in items-end md:items-center">
                     <div className="flex-1 w-full space-y-1">
-                        <label className="text-xs font-bold text-indigo-800 ml-1">Nom Complet</label>
+                        <label htmlFor="newProfName" className="text-xs font-bold text-indigo-800 ml-1">Nom Complet</label>
                         <input 
+                            id="newProfName"
                             className="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                             placeholder="Ex: Ahmed Alami"
                             value={newProfName}
@@ -323,8 +324,9 @@ const StaffManagementView: React.FC<{ user: User }> = ({ user }) => {
                         />
                     </div>
                     <div className="flex-1 w-full space-y-1">
-                        <label className="text-xs font-bold text-indigo-800 ml-1">Matière</label>
+                        <label htmlFor="newProfSubject" className="text-xs font-bold text-indigo-800 ml-1">Matière</label>
                         <input 
+                            id="newProfSubject"
                             className="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                             placeholder="Ex: Mathématiques, Arabe..."
                             value={newProfSubject}
@@ -537,8 +539,9 @@ const StudentsManagementView: React.FC<{ user: User }> = ({ user }) => {
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center gap-4">
                 <div className="flex-1 w-full">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('selectClassToView')}</label>
+                    <label htmlFor="selectClassToView" className="block text-sm font-medium text-gray-700 mb-1">{t('selectClassToView')}</label>
                     <select 
+                        id="selectClassToView"
                         className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none"
                         value={selectedClass}
                         onChange={e => setSelectedClass(e.target.value)}
@@ -550,9 +553,9 @@ const StudentsManagementView: React.FC<{ user: User }> = ({ user }) => {
 
                 {selectedClass && (
                     <div className="flex gap-2 w-full md:w-auto">
-                        <label className="bg-green-600 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 cursor-pointer hover:bg-green-700 transition shadow-sm w-full md:w-auto justify-center">
+                        <label htmlFor="importExcel" className="bg-green-600 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 cursor-pointer hover:bg-green-700 transition shadow-sm w-full md:w-auto justify-center">
                             <Upload className="w-4 h-4"/> {t('importExcel')}
-                            <input type="file" className="hidden" accept=".xlsx" onChange={handleImport} />
+                            <input id="importExcel" type="file" className="hidden" accept=".xlsx" onChange={handleImport} />
                         </label>
                         <button 
                             onClick={handleExportClass}
