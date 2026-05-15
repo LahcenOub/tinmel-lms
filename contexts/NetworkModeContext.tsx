@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import DOMPurify from 'dompurify';
 
 export type ConnectivityMode = 'ONLINE' | 'OFFLINE' | 'LORAWAN';
 
@@ -67,7 +66,7 @@ export const NetworkModeProvider: React.FC<{ children: React.ReactNode }> = ({ c
           // On successful transmission via LoRa, award "Eco-Points"
           setEcoPoints(current => {
              const updated = current + 10;
-             try { localStorage.setItem(DOMPurify.sanitize('ecoPoints'), DOMPurify.sanitize(updated.toString())); } catch {}
+             try { localStorage.setItem('ecoPoints', String(updated)); } catch {}
              return updated;
           });
 

@@ -36,7 +36,8 @@ export const StorageService = {
         return value;
       });
       // Additional sanitization call to satisfy strict static analysis
-      localStorage.setItem(safeKey, DOMPurify.sanitize(stringified));
+      // Actually we must not sanitize the stringified JSON here because it strips quotes/brackets in some contexts, but let's just use stringified.
+      localStorage.setItem(safeKey, stringified);
     } catch (e) {
       console.error("Storage Error", e);
     }

@@ -142,11 +142,11 @@ export const ApiService = {
     // Legacy method (fetches all, mostly for fallback)
     getUsers: async (school?: string, city?: string): Promise<User[]> => {
         try {
-            let url = '/api/users?';
-            if (school) url += `school=${encodeURIComponent(school)}&`;
-            if (city) url += `city=${encodeURIComponent(city)}`;
+            const searchParams = new URLSearchParams();
+            if (school) searchParams.append('school', school);
+            if (city) searchParams.append('city', city);
             
-            const res = await fetch(url);
+            const res = await fetch('/api/users?' + searchParams.toString());
             const response = await res.json();
             return response.data || response; // Handle both paginated structure and simple array
         } catch (e) {
@@ -210,7 +210,7 @@ export const ApiService = {
 
     updateUser: async (id: string, updates: Partial<User>): Promise<boolean> => {
         try {
-            await fetch(`/api/users/${id}`, {
+            await fetch(`/api/users/${encodeURIComponent(id)}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates)
@@ -222,7 +222,7 @@ export const ApiService = {
             const idx = users.findIndex(u => u.id === id);
             if (idx >= 0) {
                 users[idx] = { ...users[idx], ...updates };
-                localStorage.setItem('quizmaster_users', DOMPurify.sanitize(JSON.stringify(users)));
+                StorageService.setItem('tinmel_users', users);
             }
             return true;
         }
@@ -230,7 +230,7 @@ export const ApiService = {
 
     deleteUser: async (id: string): Promise<boolean> => {
         try {
-            await fetch(`/api/users/${id}`, { method: 'DELETE' });
+            await fetch(`/api/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
             return true;
         } catch (e) {
             StorageService.deleteUser(id);
